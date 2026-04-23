@@ -5,7 +5,10 @@ import { LogoutButton } from './components/LogoutButton';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
+  const viteConfigured = Boolean(process.env.NEXT_PUBLIC_VITE_LOGIN_URL?.trim());
   const viteLogin = process.env.NEXT_PUBLIC_VITE_LOGIN_URL ?? 'http://localhost:5173';
+  const onVercel = process.env.VERCEL === '1';
+  const viteMissingOnProd = onVercel && !viteConfigured;
   let userEmail: string | null = null;
   const hasSupabaseEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -30,6 +33,13 @@ export default async function Home() {
         <p className="mt-2 text-neutral-600">
           Next.js + Supabase Auth + Twilio Voice. El softphone requiere sesión.
         </p>
+        {viteMissingOnProd ? (
+          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
+            En Vercel falta <code className="rounded bg-red-100 px-1">NEXT_PUBLIC_VITE_LOGIN_URL</code> (URL del
+            proyecto del login Vite). Sin ella, &quot;Iniciar sesión&quot; apunta a localhost y no redirige al portal.
+            Añádela en Environment Variables del <strong>proyecto Next</strong> y vuelve a desplegar.
+          </p>
+        ) : null}
         {!hasSupabaseEnv ? (
           <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Configura <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_*</code> en{' '}
@@ -51,12 +61,18 @@ export default async function Home() {
           Abrir softphone
         </Link>
         {!userEmail ? (
-          <a
-            href={viteLogin}
-            className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
-          >
-            Iniciar sesión
-          </a>
+          viteMissingOnProd ? (
+            <span className="cursor-not-allowed rounded-xl border border-neutral-200 bg-neutral-100 px-6 py-3 text-sm font-semibold text-neutral-400">
+              Iniciar sesión
+            </span>
+          ) : (
+            <a
+              href={viteLogin}
+              className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+            >
+              Iniciar sesión
+            </a>
+          )
         ) : (
           <LogoutButton />
         )}
