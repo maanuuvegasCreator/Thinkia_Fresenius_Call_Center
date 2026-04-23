@@ -3,7 +3,7 @@
 ## Vercel (recomendado para esta app Next.js)
 
 1. Crea un proyecto en [Vercel](https://vercel.com) y enlaza el repositorio.
-2. **Root Directory**: `apps/web`.
+2. **Root Directory**: `apps/web`. El archivo `apps/web/vercel.json` fuerza `npm ci` desde la **raíz del repo** para que respete el `package-lock.json` del monorepo.
 3. **Package manager**: hay `pnpm-lock.yaml` y `package-lock.json` en la raíz; **Vercel suele usar npm** si detecta `package-lock.json`. Si prefieres **pnpm**, en Settings → General elige *pnpm* y borra o ignora `package-lock.json` en tu rama.
 4. **Install Command** (por defecto basta): `npm install` o `pnpm install` en la **raíz del repo** (Vercel clona todo el monorepo aunque el Root Directory sea `apps/web`).
 5. **Build Command** por defecto: `next build` (en el contexto de `apps/web`).
