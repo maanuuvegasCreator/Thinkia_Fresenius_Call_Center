@@ -46,15 +46,28 @@ export function Login() {
           return;
         }
 
-        const handoffRes = await fetch(`${nextOrigin}/api/auth/handoff`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }),
-        });
+        let handoffRes: Response;
+        try {
+          handoffRes = await fetch(`${nextOrigin}/api/auth/handoff`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            }),
+          });
+        } catch (handoffErr) {
+          const originPortal = typeof window !== 'undefined' ? window.location.origin : '';
+          const msg =
+            handoffErr instanceof Error && handoffErr.message === 'Failed to fetch'
+              ? `No se pudo contactar con Next (handoff). Suele ser CORS: en Vercel del proyecto Next, en AUTH_HANDOFF_ALLOWED_ORIGIN incluye exactamente el origin del portal (${originPortal}). Puedes listar varios separados por coma.`
+              : handoffErr instanceof Error
+                ? handoffErr.message
+                : 'Error de red al enlazar sesión con Next.';
+          setError(msg);
+          return;
+        }
 
         if (!handoffRes.ok) {
           const j = (await handoffRes.json().catch(() => null)) as { error?: string } | null;
@@ -69,7 +82,12 @@ export function Login() {
 
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      const m = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(
+        m === 'Failed to fetch'
+          ? 'No se pudo conectar con Supabase. Revisa VITE_SUPABASE_URL en el build de Vercel y que el proyecto Supabase esté activo.'
+          : m
+      );
     } finally {
       setIsLoading(false);
     }
