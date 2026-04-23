@@ -80,19 +80,25 @@ export function TwilioSoftphone() {
   const [digits, setDigits] = useState('');
   const [muted, setMuted] = useState(false);
 
-  const attachCallListeners = useCallback((call: Call) => {
-    call.on('disconnect', () => {
-      setActive(null);
-      setIncoming(null);
-      setMuted(false);
-    });
-    call.on('cancel', () => {
-      setIncoming(null);
-    });
-    call.on('reject', () => {
-      setIncoming(null);
-    });
-  }, []);
+  const attachCallListeners = useCallback(
+    (call: Call, opts?: { ringLabel?: string }) => {
+      call.on('disconnect', () => {
+        setActive(null);
+        setIncoming(null);
+        setMuted(false);
+      });
+      call.on('cancel', () => {
+        setIncoming(null);
+        if (opts?.ringLabel) {
+          setDeviceDetail(opts.ringLabel);
+        }
+      });
+      call.on('reject', () => {
+        setIncoming(null);
+      });
+    },
+    []
+  );
 
   const requestMic = useCallback(async () => {
     setMicState('checking');
@@ -152,7 +158,10 @@ export function TwilioSoftphone() {
       });
       device.on('incoming', (call) => {
         setIncoming(call);
-        attachCallListeners(call);
+        attachCallListeners(call, {
+          ringLabel:
+            'Entrante cancelada: otro cliente contestó antes, tiempo agotado o la llamada se retiró (multi-dispositivo / AICONCTATC-99).',
+        });
       });
 
       setDeviceState('registering');

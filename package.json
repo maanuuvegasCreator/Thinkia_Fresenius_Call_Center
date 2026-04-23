@@ -4,7 +4,8 @@
   "version": "0.0.1",
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/web",
+    "apps/mobile-softphone"
   ],
   "scripts": {
     "build": "vite build",

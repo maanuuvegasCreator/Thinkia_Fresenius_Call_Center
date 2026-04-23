@@ -1,9 +1,5 @@
-import twilio from 'twilio';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { twilioClientIdentityFromUserId } from '@/lib/twilio-identity';
-
-const { AccessToken } = twilio.jwt;
-const { VoiceGrant } = AccessToken;
+import { mintTwilioVoiceJwt } from '@/lib/twilio-voice-token';
 
 /**
  * GET /api/token — JWT Twilio con sesión Supabase (AICONCTATC-87).
@@ -24,36 +20,15 @@ export async function GET() {
       });
     }
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const apiKeySid = process.env.TWILIO_API_KEY_SID;
-    const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
-    const outgoingApplicationSid = process.env.TWILIO_TWIML_APP_SID;
-
-    if (!accountSid || !apiKeySid || !apiKeySecret || !outgoingApplicationSid) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'Faltan variables Twilio (TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, TWILIO_TWIML_APP_SID).',
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
+    const minted = mintTwilioVoiceJwt(user.id);
+    if ('error' in minted) {
+      return new Response(JSON.stringify({ error: minted.error }), {
+        status: minted.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    const identity = twilioClientIdentityFromUserId(user.id);
-
-    const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, {
-      identity,
-      ttl: 3600,
-    });
-
-    const voiceGrant = new VoiceGrant({
-      incomingAllow: true,
-      outgoingApplicationSid,
-    });
-
-    token.addGrant(voiceGrant);
-
-    return new Response(token.toJwt(), {
+    return new Response(minted.jwt, {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',

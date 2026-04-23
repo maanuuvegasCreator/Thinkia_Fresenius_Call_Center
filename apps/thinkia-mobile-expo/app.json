@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Thinkia Mobile",
+    "slug": "thinkia-mobile",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "scheme": "thinkia",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.thinkia.mobile"
+    },
+    "android": {
+      "package": "com.thinkia.mobile"
+    }
+  }
+}
