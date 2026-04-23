@@ -3,10 +3,19 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "dev": "vite",
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "dev:mobile-softphone": "npm run dev -w @thinkia/mobile-softphone",
+    "build:mobile-softphone": "npm run build -w @thinkia/mobile-softphone"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@mui/icons-material": "7.3.5",

@@ -11,6 +11,7 @@ node_modules/
 /dist
 /.next/
 /out/
+apps/mobile-softphone/dist/
 
 # Misc
 .DS_Store

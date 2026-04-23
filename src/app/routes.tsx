@@ -13,7 +13,6 @@ import { CallSettings } from './pages/settings/CallSettings';
 import { Integrations } from './pages/settings/Integrations';
 import { MainLayout } from './components/MainLayout';
 import { Contacts } from './pages/Contacts';
-import { Softphone } from './pages/Softphone';
 
 export const router = createBrowserRouter([
   {
@@ -27,10 +26,6 @@ export const router = createBrowserRouter([
         <CallCenter />
       </MainLayout>
     ),
-  },
-  {
-    path: '/softphone',
-    element: <Softphone />,
   },
   {
     path: '/contacts',

@@ -1,31 +1,82 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
 import { Phone } from 'lucide-react';
+import { getSupabaseBrowserClient } from '@/lib/supabase';
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    
-    // Simular autenticación
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: signError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signError) {
+        setError(signError.message);
+        return;
+      }
+
+      const session = data.session;
+      if (!session) {
+        setError('No se obtuvo sesión. Revisa el usuario en Supabase Auth.');
+        return;
+      }
+
+      const postLoginRedirect = searchParams.get('postLoginRedirect');
+
+      if (postLoginRedirect) {
+        let nextOrigin: string;
+        try {
+          nextOrigin = new URL(postLoginRedirect).origin;
+        } catch {
+          setError('La URL de retorno no es válida.');
+          return;
+        }
+
+        const handoffRes = await fetch(`${nextOrigin}/api/auth/handoff`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }),
+        });
+
+        if (!handoffRes.ok) {
+          const j = (await handoffRes.json().catch(() => null)) as { error?: string } | null;
+          setError(j?.error ?? `No se pudo enlazar la sesión con la app Next (HTTP ${handoffRes.status}).`);
+          return;
+        }
+
+        await supabase.auth.signOut();
+        window.location.href = postLoginRedirect;
+        return;
+      }
+
       navigate('/dashboard');
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-12 flex-col justify-between">
         <div>
           <div className="flex items-center gap-3 mb-12">
@@ -34,24 +85,19 @@ export function Login() {
             </div>
             <span className="text-2xl font-semibold text-white">AI Contact Experience</span>
           </div>
-          
+
           <div className="max-w-md">
-            <h1 className="text-4xl font-bold text-white mb-6">
-              Gestiona tus llamadas con inteligencia artificial
-            </h1>
+            <h1 className="text-4xl font-bold text-white mb-6">Gestiona tus llamadas con inteligencia artificial</h1>
             <p className="text-lg text-slate-300">
-              Plataforma integral para centros de llamadas que optimiza la experiencia del cliente 
-              con tecnología avanzada de comunicación.
+              Plataforma integral para centros de llamadas que optimiza la experiencia del cliente con tecnología avanzada
+              de comunicación.
             </p>
           </div>
         </div>
 
-        <div className="text-sm text-slate-400">
-          © 2026 AI Contact Experience. Todos los derechos reservados.
-        </div>
+        <div className="text-sm text-slate-400">© 2026 AI Contact Experience. Todos los derechos reservados.</div>
       </div>
 
-      {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <Card className="w-full max-w-md p-8">
           <div className="mb-8">
@@ -61,12 +107,12 @@ export function Login() {
               </div>
               <span className="text-lg font-semibold">AI Contact Experience</span>
             </div>
-            
+
             <h2 className="text-2xl font-semibold mb-2">Iniciar Sesión</h2>
-            <p className="text-muted-foreground">
-              Ingresa tus credenciales para acceder a tu cuenta
-            </p>
+            <p className="text-muted-foreground">Ingresa tus credenciales (Supabase Auth)</p>
           </div>
+
+          {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -85,11 +131,7 @@ export function Login() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Contraseña</Label>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="px-0 font-normal text-sm"
-                >
+                <Button type="button" variant="link" className="px-0 font-normal text-sm">
                   ¿Olvidaste tu contraseña?
                 </Button>
               </div>
@@ -104,18 +146,14 @@ export function Login() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full h-11" disabled={isLoading}>
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             ¿No tienes una cuenta?{' '}
-            <Button variant="link" className="px-1 font-normal">
+            <Button type="button" variant="link" className="px-1 font-normal">
               Solicitar acceso
             </Button>
           </div>

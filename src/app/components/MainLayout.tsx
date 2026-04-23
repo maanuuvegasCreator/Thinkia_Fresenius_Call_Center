@@ -12,7 +12,6 @@ import {
   BarChart3,
   Circle,
   BookOpen,
-  PhoneCall
 } from 'lucide-react';
 import { cn } from './ui/utils';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -28,11 +27,6 @@ const menuItems = [
     icon: Phone,
     label: 'Centro de Llamadas',
     path: '/dashboard',
-  },
-  {
-    icon: PhoneCall,
-    label: 'Softphone',
-    path: '/softphone',
   },
   {
     icon: BookOpen,
