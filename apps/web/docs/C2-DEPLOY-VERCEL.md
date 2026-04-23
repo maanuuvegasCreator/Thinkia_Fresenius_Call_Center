@@ -4,17 +4,18 @@
 
 1. Crea un proyecto en [Vercel](https://vercel.com) y enlaza el repositorio.
 2. **Root Directory**: `apps/web`. El archivo `apps/web/vercel.json` fuerza `npm ci` desde la **raíz del repo** para que respete el `package-lock.json` del monorepo.
-3. **Package manager**: hay `pnpm-lock.yaml` y `package-lock.json` en la raíz; **Vercel suele usar npm** si detecta `package-lock.json`. Si prefieres **pnpm**, en Settings → General elige *pnpm* y borra o ignora `package-lock.json` en tu rama.
-4. **Install Command** (por defecto basta): `npm install` o `pnpm install` en la **raíz del repo** (Vercel clona todo el monorepo aunque el Root Directory sea `apps/web`).
-5. **Build Command** por defecto: `next build` (en el contexto de `apps/web`).
-6. **Variables de entorno** (Production + Preview), alineadas con `apps/web/.env.example`:
+3. **Output Directory (Next)**: en el proyecto Next **no pongas `dist`**. Deja el campo vacío o quita el override: Vercel usa el preset de Next.js y busca `.next` automáticamente. `dist` solo aplica al **segundo proyecto** (Vite estático).
+4. **Package manager**: hay `pnpm-lock.yaml` y `package-lock.json` en la raíz; **Vercel suele usar npm** si detecta `package-lock.json`. Si prefieres **pnpm**, en Settings → General elige *pnpm* y borra o ignora `package-lock.json` en tu rama.
+5. **Install Command** (por defecto basta): `npm install` o `pnpm install` en la **raíz del repo** (Vercel clona todo el monorepo aunque el Root Directory sea `apps/web`).
+6. **Build Command** por defecto: `next build` (en el contexto de `apps/web`).
+7. **Variables de entorno** (Production + Preview), alineadas con `apps/web/.env.example`:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (públicas).
    - `SUPABASE_SERVICE_ROLE_KEY` (secreta; solo servidor, nunca `NEXT_PUBLIC_`).
    - `NEXT_PUBLIC_VITE_LOGIN_URL`: URL **pública** del portal de login (app Vite). Ejemplo: `https://tu-portal-vite.vercel.app` (debe coincidir con donde sirves el `dist` de Vite).
    - `AUTH_HANDOFF_ALLOWED_ORIGIN`: mismo origin que el navegador usa para abrir el portal Vite (sin barra final), p. ej. `https://tu-portal-vite.vercel.app`. Si pruebas con varios orígenes, sepáralos por comas.
    - Todas las `TWILIO_*` de `.env.example` (necesarias para voz y `/api/token`).
-7. **Dominio estable**: en Vercel → Settings → Domains, asigna el dominio de producción (HTTPS incluido).
-8. **Logs**: Vercel → proyecto → Logs (runtime y build). Revisa errores 401 en `/api/token` y 500 en `/api/voice`.
+8. **Dominio estable**: en Vercel → Settings → Domains, asigna el dominio de producción (HTTPS incluido).
+9. **Logs**: Vercel → proyecto → Logs (runtime y build). Revisa errores 401 en `/api/token` y 500 en `/api/voice`.
 
 ### Portal de login (Vite) en otro proyecto Vercel
 
