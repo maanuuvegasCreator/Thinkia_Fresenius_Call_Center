@@ -19,11 +19,31 @@ function corsHeaders(origin: string) {
   };
 }
 
-function isAllowedOrigin(origin: string | null): string | null {
-  if (!origin) return null;
+function canonicalOrigin(value: string): string | null {
+  const t = value.trim();
+  if (!t) return null;
+  try {
+    return new URL(t).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Compara por origin canónico (tolera barra final o path en la env). */
+function isAllowedOrigin(originHeader: string | null): string | null {
+  if (!originHeader) return null;
+  const requestCanon = canonicalOrigin(originHeader);
+  if (!requestCanon) return null;
+
   const raw = process.env.AUTH_HANDOFF_ALLOWED_ORIGIN ?? 'http://localhost:5173';
-  const allowed = raw.split(',').map((s) => s.trim());
-  return allowed.includes(origin) ? origin : null;
+  const entries = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  for (const entry of entries) {
+    const allowCanon = canonicalOrigin(entry);
+    if (allowCanon && allowCanon === requestCanon) {
+      return originHeader.trim();
+    }
+  }
+  return null;
 }
 
 /**
