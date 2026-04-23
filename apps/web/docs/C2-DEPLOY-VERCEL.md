@@ -19,7 +19,11 @@
 
 ### Portal de login (Vite) en otro proyecto Vercel
 
-El login Figma corre en la app **Vite** de la raíz del repo (`vite build` → carpeta `dist/`). Opción rápida: segundo proyecto en Vercel con **Framework Preset** *Other*, **Root Directory** la raíz del repo, **Build Command** `npm install && npx vite build` (o `pnpm install && pnpm exec vite build`), **Output Directory** `dist`. Variables: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (mismos valores que las `NEXT_PUBLIC_SUPABASE_*` del proyecto Next). Luego pon esa URL en `NEXT_PUBLIC_VITE_LOGIN_URL` y en `AUTH_HANDOFF_ALLOWED_ORIGIN` del proyecto Next.
+El login Figma corre en la app **Vite** de la raíz del repo (`vite build` → carpeta `dist/`). Crea un **segundo** proyecto en Vercel con el mismo repo, **Root Directory** = raíz (`./`), preset **Vite**, **Output Directory** `dist`.
+
+En la raíz del monorepo hay un `vercel.json` que fuerza **`npm ci`** + **`npm run build`** (usa `package-lock.json`). Así evitas el error de CI `ERR_PNPM_OUTDATED_LOCKFILE` cuando Vercel detecta `pnpm-lock.yaml` desfasado respecto a `package.json`.
+
+Variables en ese proyecto: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (mismos valores que las `NEXT_PUBLIC_SUPABASE_*` del proyecto Next). Luego pon la URL del portal en `NEXT_PUBLIC_VITE_LOGIN_URL` y `AUTH_HANDOFF_ALLOWED_ORIGIN` del proyecto Next y redeploy.
 
 ## Cloud Run (contenedor)
 
