@@ -45,8 +45,20 @@ export default async function Home() {
         ) : null}
         {!hasSupabaseEnv ? (
           <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Configura <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_*</code> en{' '}
-            <code className="rounded bg-amber-100 px-1">apps/web/.env</code> para activar login.
+            Configura <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code> y{' '}
+            <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
+            {onVercel ? (
+              <>
+                {' '}
+                en Vercel → proyecto → <strong>Settings</strong> → <strong>Environment Variables</strong> (Production
+                y/o Preview), guarda y vuelve a desplegar.
+              </>
+            ) : (
+              <>
+                {' '}
+                en <code className="rounded bg-amber-100 px-1">apps/web/.env</code> para activar login.
+              </>
+            )}
           </p>
         ) : userEmail ? (
           <p className="mt-4 text-sm text-neutral-700">
