@@ -37,45 +37,52 @@ export function Login() {
 
       const postLoginRedirect = searchParams.get('postLoginRedirect');
 
+      /** Origen donde vive Next (`/api/token`, cookies SSR). Mismo host en despliegue único; distinto si legacy. */
+      let handoffOrigin: string;
       if (postLoginRedirect) {
-        let nextOrigin: string;
         try {
-          nextOrigin = new URL(postLoginRedirect).origin;
+          handoffOrigin = new URL(postLoginRedirect).origin;
         } catch {
           setError('La URL de retorno no es válida.');
           return;
         }
+      } else {
+        handoffOrigin = window.location.origin;
+      }
 
-        let handoffRes: Response;
-        try {
-          handoffRes = await fetch(`${nextOrigin}/api/auth/handoff`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            }),
-          });
-        } catch (handoffErr) {
-          const originPortal = typeof window !== 'undefined' ? window.location.origin : '';
-          const msg =
-            handoffErr instanceof Error && handoffErr.message === 'Failed to fetch'
-              ? `No se pudo contactar con Next (handoff). Suele ser CORS: en Vercel del proyecto Next, en AUTH_HANDOFF_ALLOWED_ORIGIN incluye exactamente el origin del portal (${originPortal}). Puedes listar varios separados por coma.`
-              : handoffErr instanceof Error
-                ? handoffErr.message
-                : 'Error de red al enlazar sesión con Next.';
-          setError(msg);
-          return;
-        }
+      let handoffRes: Response;
+      try {
+        handoffRes = await fetch(`${handoffOrigin}/api/auth/handoff`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }),
+        });
+      } catch (handoffErr) {
+        const originPortal = typeof window !== 'undefined' ? window.location.origin : '';
+        const msg =
+          handoffErr instanceof Error && handoffErr.message === 'Failed to fetch'
+            ? `No se pudo contactar con Next (handoff). Suele ser CORS: en Vercel, en AUTH_HANDOFF_ALLOWED_ORIGIN incluye el origin del portal (${originPortal}).`
+            : handoffErr instanceof Error
+              ? handoffErr.message
+              : 'Error de red al enlazar sesión con Next.';
+        setError(msg);
+        return;
+      }
 
-        if (!handoffRes.ok) {
-          const j = (await handoffRes.json().catch(() => null)) as { error?: string } | null;
-          setError(j?.error ?? `No se pudo enlazar la sesión con la app Next (HTTP ${handoffRes.status}).`);
-          return;
-        }
+      if (!handoffRes.ok) {
+        const j = (await handoffRes.json().catch(() => null)) as { error?: string } | null;
+        setError(j?.error ?? `No se pudo enlazar la sesión con la app Next (HTTP ${handoffRes.status}).`);
+        return;
+      }
 
-        await supabase.auth.signOut();
+      /** Cookies de Next ya tienen la sesión; quitar solo el almacenamiento del cliente Supabase en el portal. */
+      await supabase.auth.signOut();
+
+      if (postLoginRedirect) {
         window.location.href = postLoginRedirect;
         return;
       }
