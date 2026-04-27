@@ -7,6 +7,21 @@ import { Card } from '../components/ui/card';
 import { Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 
+/** No llames a `signOut()` global aquí: revoca el refresh token y rompe la sesión que Next guardó en cookies vía handoff. */
+function clearSupabaseBrowserStorageOnly() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith('sb-')) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    /* noop */
+  }
+}
+
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -79,8 +94,8 @@ export function Login() {
         return;
       }
 
-      /** Cookies de Next ya tienen la sesión; quitar solo el almacenamiento del cliente Supabase en el portal. */
-      await supabase.auth.signOut();
+      /** Cookies de Next ya tienen la sesión; limpiar solo el almacenamiento local del portal (sin revocar tokens en Supabase). */
+      clearSupabaseBrowserStorageOnly();
 
       if (postLoginRedirect) {
         window.location.href = postLoginRedirect;
