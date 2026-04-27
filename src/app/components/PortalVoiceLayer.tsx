@@ -174,17 +174,9 @@ export function PortalVoiceLayer() {
           <span className="font-medium">Voz: </span>
           {voiceBanner}
         </div>
-      ) : registered ? (
-        <div
-          className={
-            acceptsIncomingCalls
-              ? 'pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow'
-              : 'pointer-events-none fixed bottom-4 left-1/2 z-[90] max-w-md -translate-x-1/2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-center text-[11px] font-medium text-slate-800 shadow'
-          }
-        >
-          {acceptsIncomingCalls
-            ? 'Twilio conectado · listo para entrantes'
-            : 'Twilio conectado · estado ≠ disponible: las entrantes se rechazan (sin popup)'}
+      ) : registered && acceptsIncomingCalls ? (
+        <div className="pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow">
+          Twilio conectado · listo para entrantes
         </div>
       ) : null}
 
