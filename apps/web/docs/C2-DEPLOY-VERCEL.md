@@ -4,18 +4,19 @@
 
 1. Crea un proyecto en [Vercel](https://vercel.com) y enlaza el repositorio.
 2. **Root Directory**: `apps/web`. El archivo `apps/web/vercel.json` fuerza `npm ci` desde la **raíz del repo** para que respete el `package-lock.json` del monorepo y ejecuta **`npm run build:portal`** (Vite) antes de **`next build`**, de modo que el portal quede en `public/portal/` y todo viva en **un solo dominio**.
-3. **Output Directory (Next)**: no pongas `dist`. Deja el campo vacío: Vercel usa el preset de Next.js y busca `.next` automáticamente.
-4. **Package manager**: hay `pnpm-lock.yaml` y `package-lock.json` en la raíz; **Vercel suele usar npm** si detecta `package-lock.json`. Si prefieres **pnpm**, en Settings → General elige *pnpm* y alinea lockfiles en tu rama.
-5. **Install Command**: por defecto basta con instalar desde la raíz del repo (Vercel clona todo el monorepo aunque el Root Directory sea `apps/web`). `apps/web/vercel.json` fija `cd ../.. && npm ci`.
-6. **Build Command**: `apps/web/vercel.json` fija `build:portal` + `next build`. No hace falta override manual salvo que quieras cambiarlo en el panel de Vercel.
-7. **Variables de entorno** (Production + Preview), alineadas con `apps/web/.env.example`:
+3. **Output Directory (Next)**: no pongas `dist`. Deja el campo vacío: Vercel usa el preset de Next.js y busca `.next` automáticamente. El `vercel.json` de esta carpeta incluye `"framework": "nextjs"` para que Vercel no trate el repo como Vite buscando `dist`.
+4. **Si el build falla con** “No Output Directory named `dist` found”: el proyecto venía como **Vite**. En Vercel → **Settings** → **General** → **Framework Preset** elige **Next.js**. En **Build & Development** borra el valor de **Output Directory** (déjalo vacío; no `dist`). Guarda y vuelve a desplegar.
+5. **Package manager**: hay `pnpm-lock.yaml` y `package-lock.json` en la raíz; **Vercel suele usar npm** si detecta `package-lock.json`. Si prefieres **pnpm**, en Settings → General elige *pnpm* y alinea lockfiles en tu rama.
+6. **Install Command**: por defecto basta con instalar desde la raíz del repo (Vercel clona todo el monorepo aunque el Root Directory sea `apps/web`). `apps/web/vercel.json` fija `cd ../.. && npm ci`.
+7. **Build Command**: `apps/web/vercel.json` fija `build:portal` + `next build`. No hace falta override manual salvo que quieras cambiarlo en el panel de Vercel.
+8. **Variables de entorno** (Production + Preview), alineadas con `apps/web/.env.example`:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (públicas).
    - `SUPABASE_SERVICE_ROLE_KEY` (secreta; solo servidor, nunca `NEXT_PUBLIC_`).
    - **`NEXT_PUBLIC_VITE_LOGIN_URL` (opcional)**: vacío = portal embebido en **`https://TU-DOMINIO/portal/`**. Si necesitas un segundo despliegue solo del portal, pon aquí su URL absoluta (o una ruta que empiece por `/`).
    - **`AUTH_HANDOFF_ALLOWED_ORIGIN`**: orígenes permitidos para el CORS de `POST /api/auth/handoff` (coma-separados). Con portal embebido, el propio dominio de Next se acepta **automáticamente** por coincidencia de `Origin` con el `Host` de la petición; esta variable sigue siendo útil para **portal en otro dominio** (legacy) o para `check:voice` / clientes móviles que reutilizan la lista.
    - Todas las `TWILIO_*` de `.env.example` (necesarias para voz y `/api/token`).
-8. **Dominio estable**: en Vercel → Settings → Domains, asigna el dominio de producción (HTTPS incluido).
-9. **Logs**: Vercel → proyecto → Logs (runtime y build). Revisa errores 401 en `/api/token` y 500 en `/api/voice`.
+9. **Dominio estable**: en Vercel → Settings → Domains, asigna el dominio de producción (HTTPS incluido).
+10. **Logs**: Vercel → proyecto → Logs (runtime y build). Revisa errores 401 en `/api/token` y 500 en `/api/voice`.
 
 ### Portal en un solo proyecto (recomendado)
 
