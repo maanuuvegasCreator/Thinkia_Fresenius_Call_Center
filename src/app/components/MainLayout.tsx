@@ -18,6 +18,11 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import logoThinkia from '../../imports/Logo_Thinkia_Light.svg';
 import { PortalVoiceLayer } from './PortalVoiceLayer';
+import {
+  AgentPresenceProvider,
+  useAgentPresence,
+  type AgentPresenceUi,
+} from '../context/AgentPresenceContext';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -61,12 +66,60 @@ const menuItems = [
   },
 ];
 
-type UserStatus = 'available' | 'unavailable' | 'do-not-disturb' | 'be-right-back' | 'appear-away';
+function getStatusConfig(status: AgentPresenceUi) {
+  switch (status) {
+    case 'available':
+      return {
+        label: 'DISPONIBLE',
+        borderColor: 'border-emerald-500',
+        textColor: 'text-emerald-600',
+        avatarBg: 'bg-emerald-100',
+        avatarText: 'text-emerald-700',
+        dotBg: 'bg-emerald-500',
+      };
+    case 'unavailable':
+      return {
+        label: 'NO DISPONIBLE',
+        borderColor: 'border-red-500',
+        textColor: 'text-red-600',
+        avatarBg: 'bg-red-100',
+        avatarText: 'text-red-700',
+        dotBg: 'bg-red-500',
+      };
+    case 'do-not-disturb':
+      return {
+        label: 'NO MOLESTAR',
+        borderColor: 'border-red-500',
+        textColor: 'text-red-600',
+        avatarBg: 'bg-red-100',
+        avatarText: 'text-red-700',
+        dotBg: 'bg-red-500',
+      };
+    case 'be-right-back':
+      return {
+        label: 'VUELVO ENSEGUIDA',
+        borderColor: 'border-yellow-500',
+        textColor: 'text-yellow-600',
+        avatarBg: 'bg-yellow-100',
+        avatarText: 'text-yellow-800',
+        dotBg: 'bg-yellow-500',
+      };
+    case 'appear-away':
+      return {
+        label: 'APARECER COMO AUSENTE',
+        borderColor: 'border-yellow-500',
+        textColor: 'text-yellow-600',
+        avatarBg: 'bg-yellow-100',
+        avatarText: 'text-yellow-800',
+        dotBg: 'bg-yellow-500',
+      };
+  }
+}
 
-export function MainLayout({ children }: MainLayoutProps) {
+function MainLayoutInner({ children }: MainLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [userStatus, setUserStatus] = useState<UserStatus>('available');
+  const { email, displayName, presence, setPresence, avatarLetter, loading, error } = useAgentPresence();
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 
   const isActivePath = (path: string) => {
@@ -76,22 +129,8 @@ export function MainLayout({ children }: MainLayoutProps) {
     return location.pathname.startsWith(path);
   };
 
-  const getStatusConfig = (status: UserStatus) => {
-    switch (status) {
-      case 'available':
-        return { label: 'DISPONIBLE', color: 'emerald', bgColor: 'bg-emerald-500', borderColor: 'border-emerald-500', textColor: 'text-emerald-600' };
-      case 'unavailable':
-        return { label: 'NO DISPONIBLE', color: 'red', bgColor: 'bg-red-500', borderColor: 'border-red-500', textColor: 'text-red-600' };
-      case 'do-not-disturb':
-        return { label: 'NO MOLESTAR', color: 'red', bgColor: 'bg-red-500', borderColor: 'border-red-500', textColor: 'text-red-600' };
-      case 'be-right-back':
-        return { label: 'VUELVO ENSEGUIDA', color: 'yellow', bgColor: 'bg-yellow-500', borderColor: 'border-yellow-500', textColor: 'text-yellow-600' };
-      case 'appear-away':
-        return { label: 'APARECER COMO AUSENTE', color: 'yellow', bgColor: 'bg-yellow-500', borderColor: 'border-yellow-500', textColor: 'text-yellow-600' };
-    }
-  };
-
-  const currentStatusConfig = getStatusConfig(userStatus);
+  const currentStatusConfig = getStatusConfig(presence);
+  const profileLabel = (email ?? displayName ?? '—').trim();
 
   return (
     <div className="size-full flex bg-background">
@@ -131,21 +170,40 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="p-4 border-t flex-shrink-0">
           <div className="relative">
             <button
+              type="button"
               onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
-              className={`w-full flex items-center gap-3 mb-4 px-3 py-3 bg-slate-50 rounded-lg border-l-4 ${currentStatusConfig.borderColor} hover:bg-slate-100 transition-colors cursor-pointer`}
+              disabled={loading}
+              className={cn(
+                'w-full flex items-center gap-3 mb-4 px-3 py-3 bg-slate-50 rounded-lg border-l-4 hover:bg-slate-100 transition-colors cursor-pointer',
+                currentStatusConfig.borderColor,
+                loading && 'opacity-60 cursor-wait'
+              )}
             >
               <div className="relative">
-                <Avatar className={`h-10 w-10 ${currentStatusConfig.bgColor.replace('bg-', 'bg-')}-100`}>
-                  <AvatarFallback className={`${currentStatusConfig.bgColor.replace('bg-', 'bg-')}-100 ${currentStatusConfig.textColor} text-sm font-semibold`}>A</AvatarFallback>
+                <Avatar className={cn('h-10 w-10', currentStatusConfig.avatarBg)}>
+                  <AvatarFallback className={cn(currentStatusConfig.avatarBg, currentStatusConfig.avatarText, 'text-sm font-semibold')}>
+                    {avatarLetter}
+                  </AvatarFallback>
                 </Avatar>
-                <div className={`absolute bottom-0 right-0 h-3 w-3 ${currentStatusConfig.bgColor} rounded-full border-2 border-white`} />
+                <div
+                  className={cn(
+                    'absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white',
+                    currentStatusConfig.dotBg
+                  )}
+                />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-medium text-slate-900 truncate">agente_thinkia.com</p>
-                <p className={`text-xs ${currentStatusConfig.textColor} font-semibold`}>{currentStatusConfig.label}</p>
+                <p className="text-sm font-medium text-slate-900 truncate" title={profileLabel}>
+                  {loading ? 'Cargando…' : profileLabel}
+                </p>
+                <p className={cn('text-xs font-semibold', currentStatusConfig.textColor)}>
+                  {currentStatusConfig.label}
+                </p>
               </div>
-              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isStatusMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform', isStatusMenuOpen ? 'rotate-180' : '')} />
             </button>
+
+            {error ? <p className="mb-2 text-[11px] text-red-600 px-1">{error}</p> : null}
 
             {/* Status Menu Dropdown */}
             {isStatusMenuOpen && (
@@ -156,8 +214,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <p className="text-xs text-gray-500 font-medium uppercase">Estado</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
-                      setUserStatus('available');
+                      void setPresence('available');
                       setIsStatusMenuOpen(false);
                     }}
                     className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-3 text-left"
@@ -166,8 +225,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <span className="text-sm text-gray-900">Disponible</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
-                      setUserStatus('unavailable');
+                      void setPresence('unavailable');
                       setIsStatusMenuOpen(false);
                     }}
                     className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-3 text-left"
@@ -176,8 +236,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <span className="text-sm text-gray-900">No disponible</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
-                      setUserStatus('do-not-disturb');
+                      void setPresence('do-not-disturb');
                       setIsStatusMenuOpen(false);
                     }}
                     className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-3 text-left"
@@ -186,8 +247,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <span className="text-sm text-gray-900">No molestar</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
-                      setUserStatus('be-right-back');
+                      void setPresence('be-right-back');
                       setIsStatusMenuOpen(false);
                     }}
                     className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-3 text-left"
@@ -196,8 +258,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <span className="text-sm text-gray-900">Vuelvo enseguida</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
-                      setUserStatus('appear-away');
+                      void setPresence('appear-away');
                       setIsStatusMenuOpen(false);
                     }}
                     className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-3 text-left"
@@ -222,9 +285,15 @@ export function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {children}
-      </div>
+      <div className="flex-1 overflow-hidden">{children}</div>
     </div>
+  );
+}
+
+export function MainLayout({ children }: MainLayoutProps) {
+  return (
+    <AgentPresenceProvider>
+      <MainLayoutInner>{children}</MainLayoutInner>
+    </AgentPresenceProvider>
   );
 }

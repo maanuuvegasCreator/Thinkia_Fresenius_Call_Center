@@ -1,6 +1,7 @@
 import { Call, Device } from '@twilio/voice-sdk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Phone, PhoneIncoming } from 'lucide-react';
+import { useAgentPresence } from '../context/AgentPresenceContext';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,10 @@ function formatCallerId(params: Record<string, string> | undefined): {
  * El micrófono se pide al descolgar (navegadores suelen exigir gesto del usuario).
  */
 export function PortalVoiceLayer() {
+  const { acceptsIncomingCalls } = useAgentPresence();
+  const acceptsRef = useRef(acceptsIncomingCalls);
+  acceptsRef.current = acceptsIncomingCalls;
+
   const deviceRef = useRef<Device | null>(null);
   const [voiceBanner, setVoiceBanner] = useState<string | null>(null);
   const [registered, setRegistered] = useState(false);
@@ -93,6 +98,14 @@ export function PortalVoiceLayer() {
         });
         device.on('incoming', (call) => {
           if (disposed) return;
+          if (!acceptsRef.current) {
+            try {
+              call.reject();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
           attachCallListeners(call);
           setIncoming(call);
         });
@@ -162,8 +175,16 @@ export function PortalVoiceLayer() {
           {voiceBanner}
         </div>
       ) : registered ? (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow">
-          Twilio conectado · listo para entrantes
+        <div
+          className={
+            acceptsIncomingCalls
+              ? 'pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow'
+              : 'pointer-events-none fixed bottom-4 left-1/2 z-[90] max-w-md -translate-x-1/2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-center text-[11px] font-medium text-slate-800 shadow'
+          }
+        >
+          {acceptsIncomingCalls
+            ? 'Twilio conectado · listo para entrantes'
+            : 'Twilio conectado · estado ≠ disponible: las entrantes se rechazan (sin popup)'}
         </div>
       ) : null}
 
