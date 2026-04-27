@@ -119,7 +119,7 @@ function getStatusConfig(status: AgentPresenceUi) {
 function MainLayoutInner({ children }: MainLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { email, displayName, presence, setPresence, avatarLetter, loading, error } = useAgentPresence();
+  const { email, displayName, fullName, presence, setPresence, avatarLetter, loading, error } = useAgentPresence();
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 
   const isActivePath = (path: string) => {
@@ -130,7 +130,8 @@ function MainLayoutInner({ children }: MainLayoutProps) {
   };
 
   const currentStatusConfig = getStatusConfig(presence);
-  const profileLabel = (email ?? displayName ?? '—').trim();
+  /** Nombre visible: metadata Auth → display_name en agents → email. */
+  const profileLabel = (fullName ?? displayName ?? email ?? '—').trim();
 
   return (
     <div className="size-full flex bg-background">
