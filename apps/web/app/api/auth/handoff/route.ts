@@ -29,11 +29,29 @@ function canonicalOrigin(value: string): string | null {
   }
 }
 
+function requestOwnOrigin(request: Request): string | null {
+  const host = request.headers.get('host') ?? '';
+  if (!host) return null;
+  const proto =
+    request.headers.get('x-forwarded-proto') ??
+    (host.includes('localhost') || host.startsWith('127.') ? 'http' : 'https');
+  try {
+    return new URL(`${proto}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
 /** Compara por origin canónico (tolera barra final o path en la env). */
-function isAllowedOrigin(originHeader: string | null): string | null {
+function isAllowedOrigin(request: Request, originHeader: string | null): string | null {
   if (!originHeader) return null;
   const requestCanon = canonicalOrigin(originHeader);
   if (!requestCanon) return null;
+
+  const own = requestOwnOrigin(request);
+  if (own && own === requestCanon) {
+    return originHeader.trim();
+  }
 
   const raw = process.env.AUTH_HANDOFF_ALLOWED_ORIGIN ?? 'http://localhost:5173';
   const entries = raw.split(',').map((s) => s.trim()).filter(Boolean);
@@ -50,7 +68,7 @@ function isAllowedOrigin(originHeader: string | null): string | null {
  * Tras login en la app Vite, copia la sesión Supabase a cookies del dominio Next (softphone /api/token).
  */
 export async function OPTIONS(request: Request) {
-  const origin = isAllowedOrigin(request.headers.get('origin'));
+  const origin = isAllowedOrigin(request, request.headers.get('origin'));
   if (!origin) {
     return new Response(null, { status: 403 });
   }
@@ -58,7 +76,7 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const origin = isAllowedOrigin(request.headers.get('origin'));
+  const origin = isAllowedOrigin(request, request.headers.get('origin'));
   if (!origin) {
     return NextResponse.json({ error: 'Origin no permitido' }, { status: 403 });
   }

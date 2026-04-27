@@ -1,30 +1,29 @@
-# Thinkia — Escritorio con Tauri (AICONCTATC-93)
+# Thinkia — Escritorio (Tauri) — AICONCTATC-93
 
-Empaqueta el **mismo backend** (Next + Supabase + Twilio) mostrando el portal **Vite** o la URL que configures.
+Envuelve el **mismo portal Vite** del monorepo (y enlaces a Next/softphone como en el navegador).
 
 ## Requisitos
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- Node 20+
+- [Rust](https://www.rust-lang.org/tools/install) + dependencias de Tauri ([Windows](https://tauri.app/v1/guides/getting-started/prerequisites/)).
+- **Windows:** el toolchain MSVC de Rust necesita **`link.exe`**. Instala [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con la carga **“Desarrollo de escritorio con C++”** (o al menos MSVC + Windows SDK). Sin esto, `tauri build` falla con `linker link.exe not found`.
 
-## Crear el proyecto Tauri (recomendado)
+## Desarrollo
 
-Desde la **raíz del monorepo**:
+Opción rápida desde la **raíz del monorepo** (instala dependencias de esta carpeta la primera vez):
 
 ```bash
-npm create tauri-app@latest apps/thinkia-desktop-tauri-app -- --template vanilla --manager npm -y
+cd apps/thinkia-desktop-tauri && npm install
+cd ../..
+npm run dev:desktop
 ```
 
-Luego ajusta `tauri.conf.json` → `build`:
+`tauri.conf.json` define `beforeDevCommand: npm run dev --prefix ../..`, así que **Tauri arranca Vite en el puerto 5173** si aún no lo tienes en marcha. Si prefieres control manual: `npm run dev` en la raíz y, en otra terminal, `npm run dev` dentro de `apps/thinkia-desktop-tauri`.
 
-- **`devUrl`**: `http://localhost:5173` (Vite raíz) o tu URL de login en preview.
-- **`frontendDist`**: `../../dist` si quieres embebido el build estático de Vite (`npm run build` en raíz).
-- **Permisos de audio**: en Tauri 2 usa capabilities / allowlist de `shell` solo si hace falta; el audio lo pide el **WebView** al usar `getUserMedia` igual que en el navegador.
+## Producción (build estático embebido)
 
-## Política de firma (interna)
+1. `npm run build` en la **raíz** (genera `dist/` del portal Vite).
+2. `npm run build` en esta carpeta → binarios en `src-tauri/target/release/bundle/`.
 
-El **build firmado** (Windows/macOS) depende de certificados y pipelines de vuestra organización; no se incluyen certificados en el repo.
+## Firma / política interna
 
-## Mismo backend
-
-El escritorio **no duplica** lógica de voz: carga la web que ya habla con Supabase y, si navegas al Next desplegado, con Twilio vía `/api/token` y cookies tras el handoff.
+Certificados de código (Windows/macOS) los configura tu equipo en `tauri.conf.json` → `bundle.windows` / firma Apple.

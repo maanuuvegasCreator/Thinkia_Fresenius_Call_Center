@@ -14,7 +14,8 @@ import { Integrations } from './pages/settings/Integrations';
 import { MainLayout } from './components/MainLayout';
 import { Contacts } from './pages/Contacts';
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
   {
     path: '/',
     Component: Login,
@@ -115,4 +116,8 @@ export const router = createBrowserRouter([
       </MainLayout>
     ),
   },
-]);
+  ],
+  {
+    basename: (import.meta.env.BASE_URL ?? '/portal/').replace(/\/$/, '') || '/portal',
+  }
+);

@@ -5,10 +5,12 @@ import { LogoutButton } from './components/LogoutButton';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const viteConfigured = Boolean(process.env.NEXT_PUBLIC_VITE_LOGIN_URL?.trim());
-  const viteLogin = process.env.NEXT_PUBLIC_VITE_LOGIN_URL ?? 'http://localhost:5173';
+  const explicitLogin = process.env.NEXT_PUBLIC_VITE_LOGIN_URL?.trim();
   const onVercel = process.env.VERCEL === '1';
-  const viteMissingOnProd = onVercel && !viteConfigured;
+  const portalMisconfiguredOnProd =
+    onVercel &&
+    typeof explicitLogin === 'string' &&
+    (explicitLogin.includes('localhost') || explicitLogin.includes('127.0.0.1'));
   let userEmail: string | null = null;
   const hasSupabaseEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -33,11 +35,12 @@ export default async function Home() {
         <p className="mt-2 text-neutral-600">
           Next.js + Supabase Auth + Twilio Voice. El softphone requiere sesión.
         </p>
-        {viteMissingOnProd ? (
+        {portalMisconfiguredOnProd ? (
           <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
-            En Vercel falta <code className="rounded bg-red-100 px-1">NEXT_PUBLIC_VITE_LOGIN_URL</code> (URL del
-            proyecto del login Vite). Sin ella, &quot;Iniciar sesión&quot; apunta a localhost y no redirige al portal.
-            Añádela en Environment Variables del <strong>proyecto Next</strong> y vuelve a desplegar.
+            En Vercel, <code className="rounded bg-red-100 px-1">NEXT_PUBLIC_VITE_LOGIN_URL</code> apunta a
+            localhost. En despliegue único el login vive en <code className="rounded bg-red-100 px-1">/portal/</code>:
+            borra esa variable o pon una URL absoluta válida (o una ruta que empiece por <code className="rounded bg-red-100 px-1">/</code>
+            ) y vuelve a desplegar.
           </p>
         ) : null}
         {!hasSupabaseEnv ? (
@@ -61,17 +64,17 @@ export default async function Home() {
           Abrir softphone
         </Link>
         {!userEmail ? (
-          viteMissingOnProd ? (
+          portalMisconfiguredOnProd ? (
             <span className="cursor-not-allowed rounded-xl border border-neutral-200 bg-neutral-100 px-6 py-3 text-sm font-semibold text-neutral-400">
               Iniciar sesión
             </span>
           ) : (
-            <a
-              href={viteLogin}
+            <Link
+              href="/login"
               className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
             >
               Iniciar sesión
-            </a>
+            </Link>
           )
         ) : (
           <LogoutButton />

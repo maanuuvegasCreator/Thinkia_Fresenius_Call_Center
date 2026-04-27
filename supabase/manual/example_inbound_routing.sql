@@ -1,0 +1,11 @@
+-- Ejecutar en Supabase → SQL Editor (sustituir número y UUID del agente de prueba).
+-- El número debe ser exactamente el E.164 al que llamáis (el "To" que envía Twilio).
+-- El UUID es auth.users.id del usuario que hará login en el softphone.
+
+-- insert into public.inbound_routing (twilio_to_number, agent_user_ids)
+-- values (
+--   '+34123456789',
+--   array['aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'::uuid]
+-- )
+-- on conflict (twilio_to_number) do update
+-- set agent_user_ids = excluded.agent_user_ids;

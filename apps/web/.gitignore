@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# Vite portal estático generado en build (un solo despliegue)
+/public/portal
+
 # production
 /build
 

@@ -12,6 +12,7 @@ node_modules/
 /.next/
 /out/
 apps/mobile-softphone/dist/
+apps/thinkia-mobile-expo/artifacts/
 
 # Misc
 .DS_Store

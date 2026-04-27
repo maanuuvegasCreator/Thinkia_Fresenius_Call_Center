@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { mintTwilioVoiceJwt } from '@/lib/twilio-voice-token';
 
-function corsHeaders(origin: string | null) {
-  if (!origin) return {};
+function corsHeaders(origin: string | null): Record<string, string> {
+  if (!origin) {
+    return {};
+  }
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',

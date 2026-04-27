@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { resolvePortalLoginUrl } from '@/lib/portal-login-url';
 
 function copyCookies(from: NextResponse, to: NextResponse) {
   from.cookies.getAll().forEach((c) => {
@@ -42,8 +43,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith('/softphone') && !user) {
-    const viteBase = process.env.NEXT_PUBLIC_VITE_LOGIN_URL ?? 'http://localhost:5173';
-    const u = new URL(viteBase);
+    const u = resolvePortalLoginUrl({
+      requestOrigin: request.nextUrl.origin,
+      explicit: process.env.NEXT_PUBLIC_VITE_LOGIN_URL,
+    });
     const returnUrl = `${request.nextUrl.origin}${request.nextUrl.pathname}${request.nextUrl.search}`;
     u.searchParams.set('postLoginRedirect', returnUrl);
     const redirect = NextResponse.redirect(u);

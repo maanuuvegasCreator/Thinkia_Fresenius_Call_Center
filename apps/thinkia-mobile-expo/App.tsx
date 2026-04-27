@@ -1,80 +1,117 @@
+import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { isSupabaseConfigured } from './src/lib/env';
+import { supabase } from './src/lib/supabase';
+import { LoginScreen } from './src/screens/LoginScreen';
 
-const API_BASE =
-  process.env.EXPO_PUBLIC_NEXT_API_BASE ?? 'https://TU-PROYECTO-NEXT.vercel.app';
+const SoftphoneLazy = lazy(() =>
+  import('./src/screens/SoftphoneScreen').then((m) => ({ default: m.SoftphoneScreen }))
+);
+
+class RootErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
+  state: { err: Error | null } = { err: null };
+
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
+
+  render() {
+    if (this.state.err) {
+      return (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorTitle}>La app se ha cerrado por un error</Text>
+          <Text style={styles.errorHint} selectable>
+            {this.state.err.message}
+          </Text>
+          <Text style={styles.errorMeta}>
+            Si acabas de instalar la APK, suele deberse a variables EXPO_PUBLIC_* no incluidas en el
+            build o al softphone Twilio cargando demasiado pronto. Reconstruye con `.env` o revisa
+            logcat (`adb logcat`).
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
-  const [accessToken, setAccessToken] = useState('');
-  const [preview, setPreview] = useState('');
+  const [session, setSession] = useState<Session | null>(null);
+  const [bootError, setBootError] = useState<string | null>(null);
 
-  const fetchTwilioJwt = async () => {
-    const t = accessToken.trim();
-    if (!t) {
-      Alert.alert('Falta token', 'Pega el access_token de Supabase (sesión).');
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setSession(null);
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/api/token/mobile`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}` },
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session ?? null);
+      })
+      .catch((e: unknown) => {
+        setBootError(e instanceof Error ? e.message : String(e));
       });
-      const body = await res.text();
-      if (!res.ok) {
-        Alert.alert(`HTTP ${res.status}`, body.slice(0, 500));
-        return;
-      }
-      setPreview(`${body.slice(0, 48)}…`);
-      Alert.alert(
-        'JWT recibido',
-        'Siguiente: instalar @twilio/voice-react-native-sdk, expo prebuild y registrar Voice según C3-PUSH-CALLKIT-SETUP.md'
-      );
-    } catch (e) {
-      Alert.alert('Error de red', e instanceof Error ? e.message : String(e));
-    }
-  };
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (bootError) {
+    return (
+      <View style={styles.errorWrap}>
+        <Text style={styles.errorTitle}>Error de sesión</Text>
+        <Text style={styles.errorHint} selectable>
+          {bootError}
+        </Text>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Thinkia — C3 móvil</Text>
-      <Text style={styles.p}>
-        Base API Next:{'\n'}
-        {API_BASE}
-      </Text>
-      <Text style={styles.label}>Supabase access_token (Bearer)</Text>
-      <TextInput
-        style={styles.input}
-        value={accessToken}
-        onChangeText={setAccessToken}
-        autoCapitalize="none"
-        placeholder="eyJhbGciOi…"
-        placeholderTextColor="#999"
-      />
-      <Button title="POST /api/token/mobile" onPress={fetchTwilioJwt} />
-      {preview ? <Text style={styles.preview}>{preview}</Text> : null}
-      <StatusBar style="auto" />
-    </View>
+    <RootErrorBoundary>
+      {session ? (
+        <Suspense
+          fallback={
+            <View style={styles.suspense}>
+              <ActivityIndicator size="large" />
+              <Text style={styles.suspenseText}>Cargando softphone…</Text>
+            </View>
+          }
+        >
+          <SoftphoneLazy session={session} />
+        </Suspense>
+      ) : (
+        <LoginScreen />
+      )}
+      <StatusBar style="dark" />
+    </RootErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  errorWrap: {
     flex: 1,
-    backgroundColor: '#fff',
+    justifyContent: 'center',
     padding: 24,
-    paddingTop: 56,
+    backgroundColor: '#fafafa',
     gap: 12,
   },
-  title: { fontSize: 20, fontWeight: '700' },
-  p: { fontSize: 13, color: '#444' },
-  label: { fontSize: 12, fontWeight: '600', marginTop: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 12,
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#18181b' },
+  errorHint: { fontSize: 14, color: '#52525b' },
+  errorMeta: { fontSize: 12, color: '#71717a', marginTop: 8 },
+  suspense: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff',
   },
-  preview: { fontSize: 11, color: '#333', marginTop: 8 },
+  suspenseText: { fontSize: 14, color: '#52525b' },
 });

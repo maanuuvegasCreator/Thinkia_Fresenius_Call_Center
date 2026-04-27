@@ -14,8 +14,17 @@ export function LogoutButton() {
     } catch {
       /* ignorar */
     } finally {
-      const vite = process.env.NEXT_PUBLIC_VITE_LOGIN_URL ?? 'http://localhost:5173';
-      window.location.href = vite;
+      const explicit = process.env.NEXT_PUBLIC_VITE_LOGIN_URL?.trim();
+      let href: string;
+      if (explicit?.startsWith('http://') || explicit?.startsWith('https://')) {
+        href = explicit;
+      } else if (explicit?.startsWith('/')) {
+        const path = explicit.endsWith('/') ? explicit : `${explicit}/`;
+        href = `${window.location.origin}${path}`;
+      } else {
+        href = `${window.location.origin}/portal/`;
+      }
+      window.location.href = href;
       setLoading(false);
     }
   };
