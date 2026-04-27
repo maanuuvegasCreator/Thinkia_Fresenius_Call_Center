@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check:voice": "node ./scripts/check-voice-setup.mjs"
+    "check:voice": "node ./scripts/check-voice-setup.mjs",
+    "simulate:ring": "node ./scripts/simulate-client-ring-cli.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
