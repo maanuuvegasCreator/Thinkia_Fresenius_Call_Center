@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build:portal && cd apps/web && npx next build",
+  "outputDirectory": "apps/web/.next",
+  "rewrites": [
+    { "source": "/portal", "destination": "/portal/index.html" },
+    { "source": "/portal/", "destination": "/portal/index.html" },
+    { "source": "/portal/:path*", "destination": "/portal/index.html" }
+  ]
 }
