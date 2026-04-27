@@ -6,6 +6,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   /** Embebido en Next (`apps/web/public/portal`) para un solo despliegue en Vercel. */
   base: '/portal/',
+  server: {
+    proxy: {
+      /** Sesión + token Twilio viven en Next (`apps/web`); en local levanta `npm run dev -w web` en :3000. */
+      '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      '/auth': { target: 'http://localhost:3000', changeOrigin: true },
+    },
+  },
   build: {
     outDir: 'apps/web/public/portal',
     emptyOutDir: true,

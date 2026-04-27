@@ -17,6 +17,7 @@ import { cn } from './ui/utils';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import logoThinkia from '../../imports/Logo_Thinkia_Light.svg';
+import { PortalVoiceLayer } from './PortalVoiceLayer';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -94,6 +95,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="size-full flex bg-background">
+      <PortalVoiceLayer />
       {/* Main Sidebar */}
       <div className="w-64 min-w-64 border-r flex flex-col bg-white flex-shrink-0">
         {/* Logo */}
