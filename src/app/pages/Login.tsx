@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
-import { Phone } from 'lucide-react';
+import { Loader2, Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
+
+/** Sesión viva en cookies Next (tras handoff); localStorage `sb-*` del portal suele estar vacío. */
+function hasServerSession(res: Response): boolean {
+  if (res.status === 401) return false;
+  return res.ok || res.status === 404;
+}
+
+function sameOriginHref(candidate: string): string | null {
+  try {
+    const u = new URL(candidate, window.location.origin);
+    if (u.origin === window.location.origin) return u.href;
+  } catch {
+    /* noop */
+  }
+  return null;
+}
 
 /** No llames a `signOut()` global aquí: revoca el refresh token y rompe la sesión que Next guardó en cookies vía handoff. */
 function clearSupabaseBrowserStorageOnly() {
@@ -29,6 +45,39 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Comprueba cookies SSR antes de mostrar el formulario. */
+  const [bootstrapping, setBootstrapping] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreSession() {
+      try {
+        const res = await fetch('/api/agents/me', { credentials: 'include', cache: 'no-store' });
+        if (cancelled) return;
+        if (!hasServerSession(res)) {
+          setBootstrapping(false);
+          return;
+        }
+        const postLoginRedirect = searchParams.get('postLoginRedirect');
+        if (postLoginRedirect) {
+          const href = sameOriginHref(postLoginRedirect);
+          if (href) {
+            window.location.replace(href);
+            return;
+          }
+        }
+        navigate('/dashboard', { replace: true });
+      } catch {
+        if (!cancelled) setBootstrapping(false);
+      }
+    }
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +163,17 @@ export function Login() {
       setIsLoading(false);
     }
   };
+
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-500" aria-hidden />
+          <p className="text-sm">Comprobando sesión…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
