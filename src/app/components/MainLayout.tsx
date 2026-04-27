@@ -285,8 +285,8 @@ function MainLayoutInner({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">{children}</div>
+      {/* Main Content — overflow-auto para vistas largas (p. ej. Analytics con iframe). */}
+      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
     </div>
   );
 }
