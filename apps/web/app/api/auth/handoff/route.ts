@@ -106,14 +106,20 @@ export async function POST(request: Request) {
   const cookieHeader = request.headers.get('cookie') ?? '';
   let response = NextResponse.json({ ok: true }, { headers: corsHeaders(origin) });
 
-  /** Sin esto, el navegador no guarda Set-Cookie en un fetch cross-site (Vite → Next) y /softphone vuelve al login. */
-  const crossSiteCookies =
-    process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+  const originHeader = request.headers.get('origin');
+  const ownOrigin = requestOwnOrigin(request);
+  const originCanon = originHeader?.trim() ? canonicalOrigin(originHeader) : null;
+  const isSameOrigin = Boolean(originCanon && ownOrigin && originCanon === ownOrigin);
+
+  /**
+   * Mismo dominio (portal embebido en `/portal`): `SameSite=Lax` + `Secure` para que el navegador guarde bien
+   * las cookies del `fetch` al handoff. Cross-site (legacy Vite en otro puerto/host): `None` + `Secure` en HTTPS.
+   */
+  const cookieSecure = ownOrigin ? new URL(ownOrigin).protocol === 'https:' : true;
+  const cookieSameSite: 'lax' | 'none' = isSameOrigin ? 'lax' : 'none';
 
   const supabase = createServerClient(url, anonKey, {
-    cookieOptions: crossSiteCookies
-      ? { path: '/', sameSite: 'none', secure: true }
-      : { path: '/', sameSite: 'lax', secure: false },
+    cookieOptions: { path: '/', sameSite: cookieSameSite, secure: cookieSecure },
     cookies: {
       getAll() {
         return parseCookieHeader(cookieHeader);
@@ -121,9 +127,11 @@ export async function POST(request: Request) {
       setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
         cookiesToSet.forEach(({ name, value, options }) => {
           const base = (options ?? {}) as Parameters<typeof response.cookies.set>[2];
-          const merged = crossSiteCookies
-            ? { ...(typeof base === 'object' && base ? base : {}), sameSite: 'none' as const, secure: true }
-            : base;
+          const merged = {
+            ...(typeof base === 'object' && base ? base : {}),
+            sameSite: cookieSameSite,
+            secure: cookieSecure,
+          };
           response.cookies.set(name, value, merged);
         });
       },
