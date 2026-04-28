@@ -1,0 +1,74 @@
+# Compila .exe / instalador NSIS en windows-latest (MSVC). Descarga el ZIP en Actions → Artifacts.
+#
+# El ejecutable NO embebe Twilio/Supabase: abre el mismo portal que en Vercel; las variables
+# de entorno siguen en el servidor (igual que en el navegador).
+name: Desktop Tauri (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      portal_url:
+        description: 'URL del portal (ej. https://TU-PROYECTO.vercel.app/portal/) — vacío = default del repo o secret THINKIA_WEB_URL'
+        required: false
+        default: ''
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/thinkia-desktop-tauri
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/thinkia-desktop-tauri/package-lock.json
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/thinkia-desktop-tauri/src-tauri
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Shell HTML (URL → Vercel u override)
+        shell: bash
+        run: |
+          set -e
+          if [ -n "$PORTAL_URL_INPUT" ]; then
+            export THINKIA_WEB_URL="$PORTAL_URL_INPUT"
+          elif [ -n "$PORTAL_URL_SECRET" ]; then
+            export THINKIA_WEB_URL="$PORTAL_URL_SECRET"
+          fi
+          node scripts/write-shell.mjs
+        env:
+          PORTAL_URL_INPUT: ${{ github.event.inputs.portal_url }}
+          PORTAL_URL_SECRET: ${{ secrets.THINKIA_WEB_URL }}
+
+      - name: Tauri build
+        run: npx tauri build
+
+      - name: Upload instaladores (bundle)
+        uses: actions/upload-artifact@v4
+        with:
+          name: thinkia-desktop-bundle-windows
+          path: apps/thinkia-desktop-tauri/src-tauri/target/release/bundle/
+          if-no-files-found: warn
+
+      - name: Upload exe suelto (target/release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: thinkia-desktop-release-exe
+          path: apps/thinkia-desktop-tauri/src-tauri/target/release/*.exe
+          if-no-files-found: warn

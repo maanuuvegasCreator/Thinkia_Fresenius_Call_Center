@@ -20,6 +20,20 @@ Si Vite ya está en marcha (`npm run dev` en la raíz), puedes usar solo `npm ru
 
 El build empaqueta una página local que **redirige** al portal en producción (por defecto `https://thinkia-fresenius-call-center2.vercel.app/portal/`).
 
+### Igual que en Vercel (variables de entorno)
+
+El `.exe` **no incluye** `TWILIO_*`, `SUPABASE_*`, etc.: es un WebView que abre tu **mismo dominio desplegado**. Las variables siguen en **Vercel → Settings → Environment Variables** del proyecto Next; el comportamiento es el mismo que abrir Chrome en esa URL.
+
+Si cambias de dominio, configura en GitHub **Settings → Secrets and variables → Actions** el secret opcional `THINKIA_WEB_URL` (p. ej. `https://tu-app.vercel.app/portal/`) y ejecuta el workflow, o pasa la URL en el input **portal_url** al lanzar **Desktop Tauri (Windows)** manualmente.
+
+### Build en GitHub (recomendado si no tienes MSVC local)
+
+1. Sube estos cambios a `main`.
+2. En GitHub: **Actions** → **Desktop Tauri (Windows)** → **Run workflow** (opcional: rellena **portal_url**).
+3. Al terminar: abre el run → **Artifacts** → descarga `thinkia-desktop-bundle-windows` (NSIS/MSI) y/o `thinkia-desktop-release-exe`.
+
+### Build en tu PC
+
 ```bash
 cd apps/thinkia-desktop-tauri
 npm install
