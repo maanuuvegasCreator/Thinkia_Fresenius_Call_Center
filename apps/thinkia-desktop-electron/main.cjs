@@ -2,7 +2,7 @@
  * Thinkia — cliente escritorio (Electron).
  * Carga el mismo portal que en Vercel; Twilio/Supabase siguen en el servidor.
  */
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -24,6 +24,25 @@ function portalBaseUrl() {
   const e = process.env.THINKIA_WEB_URL?.trim();
   if (e) return e.endsWith('/') ? e : `${e}/`;
   return DEFAULT_PORTAL;
+}
+
+function setApplicationMenu() {
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        {
+          label: app.name,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'quit' },
+          ],
+        },
+      ]),
+    );
+    return;
+  }
+  Menu.setApplicationMenu(null);
 }
 
 function createWindow() {
@@ -80,7 +99,10 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  setApplicationMenu();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

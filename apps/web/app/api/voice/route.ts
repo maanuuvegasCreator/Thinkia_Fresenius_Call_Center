@@ -1,6 +1,7 @@
 import twilio from 'twilio';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/admin';
 import { twilioClientIdentityFromUserId } from '@/lib/twilio-identity';
+import { publicVoiceStatusCallbackUrl } from '@/lib/twilio-webhook-url';
 
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
@@ -39,7 +40,17 @@ export async function POST(request: Request) {
       twiml.say({ language: 'es-ES' }, 'No se indicó número de destino.');
       return xmlResponse(twiml);
     }
-    const dial = twiml.dial({ callerId });
+    const statusCb = publicVoiceStatusCallbackUrl();
+    const dial = twiml.dial({
+      callerId,
+      ...(statusCb
+        ? {
+            statusCallback: statusCb,
+            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] as const,
+            statusCallbackMethod: 'POST' as const,
+          }
+        : {}),
+    });
     dial.number(normalizeDialNumber(to));
     return xmlResponse(twiml);
   }
@@ -76,7 +87,17 @@ export async function POST(request: Request) {
     return xmlResponse(twiml);
   }
 
-  const dial = twiml.dial({ timeout: 45 });
+  const statusCb = publicVoiceStatusCallbackUrl();
+  const dial = twiml.dial({
+    timeout: 45,
+    ...(statusCb
+      ? {
+          statusCallback: statusCb,
+          statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] as const,
+          statusCallbackMethod: 'POST' as const,
+        }
+      : {}),
+  });
   for (const identity of clientIdentities) {
     dial.client(identity);
   }
