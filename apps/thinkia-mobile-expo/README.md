@@ -11,11 +11,22 @@ npm install
 
 ## APK release (local)
 
-Si Gradle falla en el Escritorio con **OneDrive** (`build.ninja still dirty`), compila desde una copia en `C:\Temp` o excluye la carpeta del antivirus. Ejemplo (tras `npm ci` en la copia):
+Si Gradle falla en el Escritorio con **OneDrive** o **ninja: build.ninja still dirty**, usa el script que copia a `%TEMP%` y compila allí:
+
+```powershell
+cd apps/thinkia-mobile-expo
+npm run build:apk
+```
+
+Requisitos previos: **`android/local.properties`** con `sdk.dir=...` (Android SDK) y **`.env`** con `EXPO_PUBLIC_*` (mismo contenido que necesitas para `expo start`).
+
+Alternativa manual (tras copiar el proyecto a `C:\Temp\...`):
 
 `.\gradlew.bat assembleRelease --no-daemon --project-cache-dir C:\Temp\thinkia-gradle-project-cache -PreactNativeArchitectures=arm64-v8a`
 
-El último APK generado en este repo queda en **`artifacts/Thinkia-Mobile-arm64-v8a-release.apk`** (~95 MB, **solo arm64-v8a**; firma release provisional con el keystore debug de plantilla).
+Exporta `NODE_ENV=production` antes de Gradle si ves avisos de Expo al empaquetar.
+
+El APK queda en **`artifacts/Thinkia-Mobile-arm64-v8a-release.apk`** (~100 MB, **solo arm64-v8a**; firma release = keystore **debug** de plantilla, válido para pruebas internas).
 
 **Si la APK se cierra al abrir:** casi siempre es (1) **Twilio** cargando en frío sin sesión — ya se carga solo tras login (`React.lazy`); (2) **sin `.env` en el momento del `gradlew assembleRelease`**, así que `EXPO_PUBLIC_*` van vacías. Copia `.env` con Supabase + URL Next **antes** de compilar; `expo start` no rellena la release.
 

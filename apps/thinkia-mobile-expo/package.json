@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:apk": "powershell -ExecutionPolicy Bypass -File ./scripts/build-apk-windows.ps1"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
