@@ -15,8 +15,12 @@
     "build:web": "npm run build -w web",
     "dev:mobile-softphone": "npm run dev -w @thinkia/mobile-softphone",
     "build:mobile-softphone": "npm run build -w @thinkia/mobile-softphone",
-    "dev:desktop": "npm run dev --prefix apps/thinkia-desktop-tauri",
-    "build:desktop": "npm run build --prefix apps/thinkia-desktop-tauri",
+    "dev:desktop": "npm run start --prefix apps/thinkia-desktop-electron",
+    "build:desktop": "npm run dist --prefix apps/thinkia-desktop-electron",
+    "dev:electron": "npm run start --prefix apps/thinkia-desktop-electron",
+    "build:electron": "npm run dist --prefix apps/thinkia-desktop-electron",
+    "dev:desktop-tauri": "npm run dev --prefix apps/thinkia-desktop-tauri",
+    "build:desktop-tauri": "npm run build --prefix apps/thinkia-desktop-tauri",
     "check:voice": "npm run check:voice -w web"
   },
   "dependencies": {

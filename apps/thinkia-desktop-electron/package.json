@@ -1,0 +1,39 @@
+{
+  "name": "thinkia-desktop-electron",
+  "private": true,
+  "version": "0.1.0",
+  "author": "Thinkia",
+  "description": "Thinkia Call Center — ventana nativa del portal web",
+  "main": "main.cjs",
+  "scripts": {
+    "url": "node ./scripts/write-portal-url.mjs",
+    "start": "npm run url && electron .",
+    "pack": "npm run url && electron-builder --dir",
+    "dist": "npm run url && electron-builder"
+  },
+  "build": {
+    "appId": "com.thinkia.desktop",
+    "productName": "Thinkia",
+    "copyright": "Copyright © 2026",
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": ["main.cjs", "portal-url.json"],
+    "asar": true,
+    "win": {
+      "target": ["portable", "nsis"],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "signAndEditExecutable": false,
+      "signDlls": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

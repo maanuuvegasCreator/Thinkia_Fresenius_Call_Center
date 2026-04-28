@@ -1,0 +1,35 @@
+name: Desktop Electron (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/thinkia-desktop-electron
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/thinkia-desktop-electron/package-lock.json
+
+      - run: npm ci
+
+      - name: Empaquetar (portable + NSIS)
+        run: npm run dist
+        env:
+          THINKIA_WEB_URL: ${{ secrets.THINKIA_WEB_URL }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thinkia-electron-windows
+          path: apps/thinkia-desktop-electron/release/
+          if-no-files-found: warn
