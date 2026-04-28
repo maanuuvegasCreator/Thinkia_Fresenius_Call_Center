@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
+    "shell": "node ./scripts/write-shell.mjs",
     "dev": "tauri dev",
     "build": "tauri build"
   },

@@ -1,29 +1,49 @@
 # Thinkia — Escritorio (Tauri) — AICONCTATC-93
 
-Envuelve el **mismo portal Vite** del monorepo (y enlaces a Next/softphone como en el navegador).
+Aplicación **Windows (.exe / instalador)** que abre el **mismo portal** que en el navegador (Vite bajo `/portal/` en tu dominio Vercel). Sesión, handoff y Twilio funcionan igual que en Chrome.
 
-## Requisitos
+## Requisitos (Windows)
 
-- [Rust](https://www.rust-lang.org/tools/install) + dependencias de Tauri ([Windows](https://tauri.app/v1/guides/getting-started/prerequisites/)).
-- **Windows:** el toolchain MSVC de Rust necesita **`link.exe`**. Instala [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con la carga **“Desarrollo de escritorio con C++”** (o al menos MSVC + Windows SDK). Sin esto, `tauri build` falla con `linker link.exe not found`.
+- [Rust](https://www.rust-lang.org/tools/install) + [prerrequisitos Tauri v1](https://v1.tauri.app/v1/guides/getting-started/prerequisites/).
+- **MSVC:** instala [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con **“Desarrollo de escritorio con C++”** (incluye `link.exe` y Windows SDK). Sin esto, `tauri build` falla con `linker link.exe not found`.
 
 ## Desarrollo
 
-Opción rápida desde la **raíz del monorepo** (instala dependencias de esta carpeta la primera vez):
+1. En la **raíz del monorepo**: `npm install` (si no lo hiciste).
+2. En esta carpeta: `npm install`
+3. Desde la raíz: `npm run dev:desktop`  
+   - Arranca Vite (`localhost:5173/portal/`) y el WebView de Tauri apuntando ahí.
+
+Si Vite ya está en marcha (`npm run dev` en la raíz), puedes usar solo `npm run dev` dentro de `apps/thinkia-desktop-tauri`.
+
+## Generar el .exe / instalador
+
+El build empaqueta una página local que **redirige** al portal en producción (por defecto `https://thinkia-fresenius-call-center2.vercel.app/portal/`).
 
 ```bash
-cd apps/thinkia-desktop-tauri && npm install
-cd ../..
-npm run dev:desktop
+cd apps/thinkia-desktop-tauri
+npm install
+npm run build
 ```
 
-`tauri.conf.json` define `beforeDevCommand: npm run dev --prefix ../..`, así que **Tauri arranca Vite en el puerto 5173** si aún no lo tienes en marcha. Si prefieres control manual: `npm run dev` en la raíz y, en otra terminal, `npm run dev` dentro de `apps/thinkia-desktop-tauri`.
+Salidas típicas (Windows):
 
-## Producción (build estático embebido)
+- **Ejecutable:** `src-tauri/target/release/thinkia-desktop-tauri.exe`
+- **Instalador NSIS:** `src-tauri/target/release/bundle/nsis/`
+- **MSI:** `src-tauri/target/release/bundle/msi/`
 
-1. `npm run build` en la **raíz** (genera `dist/` del portal Vite).
-2. `npm run build` en esta carpeta → binarios en `src-tauri/target/release/bundle/`.
+### Otra URL (staging / otro dominio)
 
-## Firma / política interna
+Antes de `npm run build`:
 
-Certificados de código (Windows/macOS) los configura tu equipo en `tauri.conf.json` → `bundle.windows` / firma Apple.
+```powershell
+$env:THINKIA_WEB_URL="https://tu-dominio.com/portal/"
+npm run build
+```
+
+Eso regenera `dist-web/index.html` vía `scripts/write-shell.mjs`.
+
+## Notas
+
+- No hace falta ejecutar `vite build` del monorepo para el **instalador** del escritorio: el cliente carga la web remota. Sí necesitas Vite en **dev**.
+- Firma de código (SmartScreen): configura certificado en `tauri.conf.json` → `bundle.windows` cuando tu organización lo exija.

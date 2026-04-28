@@ -1,9 +1,9 @@
 {
   "build": {
     "beforeDevCommand": "npm run dev --prefix ../..",
-    "beforeBuildCommand": "npm run build --prefix ../..",
-    "devPath": "http://localhost:5173",
-    "distDir": "../../../dist",
+    "beforeBuildCommand": "node ./scripts/write-shell.mjs",
+    "devPath": "http://localhost:5173/portal/",
+    "distDir": "../dist-web",
     "withGlobalTauri": true
   },
   "package": {
@@ -25,7 +25,7 @@
         "icons/icon.ico"
       ],
       "shortDescription": "Thinkia — Call Center",
-      "longDescription": "Cliente escritorio: misma UI Vite + flujo Next/Supabase/Twilio que en navegador.",
+      "longDescription": "Cliente escritorio: abre el portal web Thinkia (Supabase + Twilio) en una ventana nativa.",
       "category": "Business",
       "targets": "all",
       "windows": {
