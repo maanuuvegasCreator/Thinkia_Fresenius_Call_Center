@@ -1,7 +1,9 @@
+import type { LucideIcon } from 'lucide-react';
 import { Call, Device } from '@twilio/voice-sdk';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Phone, PhoneIncoming } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Building2, Clock, FileText, Phone, PhoneIncoming, Shield, UserRound } from 'lucide-react';
 import { useAgentPresence } from '../context/AgentPresenceContext';
+import { resolveDynamicsCallerProfile } from '@/lib/dynamicsCallerEnrichment';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,32 @@ function formatCallerId(params: Record<string, string> | undefined): {
     to: p.To ?? '—',
     callSid: p.CallSid ?? '—',
   };
+}
+
+function InfoTile({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-[#eef0f6] bg-white p-2.5 shadow-sm">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-[#3B6CFF]" aria-hidden />
+        {label}
+      </div>
+      <p
+        className={`mt-1 text-xs font-semibold leading-snug text-[#03091D] ${mono ? 'font-mono text-[11px] font-medium' : ''}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -167,6 +195,11 @@ export function PortalVoiceLayer() {
       ? formatCallerId(active.parameters as Record<string, string>)
       : null;
 
+  const dynamics = useMemo(() => {
+    if (!meta) return null;
+    return resolveDynamicsCallerProfile(meta.from, meta.callerName);
+  }, [meta]);
+
   return (
     <>
       {voiceBanner ? (
@@ -189,46 +222,89 @@ export function PortalVoiceLayer() {
           }
         }}
       >
-        <DialogContent className="z-[100] max-w-md gap-4 border-slate-200 sm:max-w-md [&>button.absolute]:hidden">
-          {incoming && meta ? (
+        <DialogContent className="z-[100] max-w-lg gap-0 overflow-hidden border-[#e8eaf0] p-0 shadow-2xl sm:max-w-lg [&>button.absolute]:hidden">
+          {incoming && meta && dynamics ? (
             <>
-              <DialogHeader>
-                <div className="flex items-center gap-2 text-amber-700">
-                  <PhoneIncoming className="h-6 w-6 shrink-0" />
-                  <DialogTitle className="text-lg">Llamada entrante</DialogTitle>
-                </div>
-                <DialogDescription asChild>
-                  <div className="space-y-2 pt-2 text-left text-base text-slate-800">
-                    <p>
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Teléfono</span>
-                      <br />
-                      <span className="font-mono text-lg font-semibold">{meta.from}</span>
-                    </p>
-                    {meta.callerName ? (
-                      <p>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</span>
-                        <br />
-                        <span>{meta.callerName}</span>
-                      </p>
-                    ) : null}
-                    <p>
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Llamada a</span>
-                      <br />
-                      <span className="font-mono text-sm">{meta.to}</span>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      ID llamada: <span className="font-mono">{meta.callSid}</span>
-                    </p>
+              <div className="bg-[#001963] px-5 py-4 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                      <PhoneIncoming className="h-5 w-5" aria-hidden />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-lg font-bold tracking-tight text-white">Llamada entrante</DialogTitle>
+                      <p className="mt-0.5 text-[11px] font-medium text-white/80">Thinkia Call Center</p>
+                    </div>
                   </div>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={rejectIncoming}>
+                  <span className="shrink-0 rounded-md bg-[#3B6CFF] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                    Dynamics 365
+                  </span>
+                </div>
+                <p className="mt-3 text-[11px] leading-snug text-white/75">
+                  Ficha enriquecida (simulación): coincidencia por teléfono como en integración CRM real.
+                </p>
+              </div>
+
+              <div className="bg-[#f2f3f8] px-5 py-4">
+                <div className="flex items-center gap-3 rounded-xl border border-[#eef0f6] bg-white p-3 shadow-sm">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eef1fb] text-base font-extrabold text-[#001963]">
+                    {dynamics.contactName
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((w) => w[0])
+                      .join('')
+                      .toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold text-[#03091D]">{dynamics.contactName}</p>
+                    <p className="font-mono text-sm font-semibold text-[#3B6CFF]">{dynamics.phoneDisplay}</p>
+                    {dynamics.matchedInCrm ? (
+                      <span className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                        Coincidencia en CRM
+                      </span>
+                    ) : (
+                      <span className="mt-1 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-200">
+                        Sin ficha exacta · vista genérica
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <DialogHeader className="sr-only">
+                  <DialogDescription>Llamada entrante con datos simulados de Dynamics</DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <InfoTile icon={Building2} label="Cuenta / organización" value={dynamics.accountName} />
+                  <InfoTile icon={FileText} label="Identificadores" value={dynamics.patientOrContactId} />
+                  <InfoTile icon={Shield} label="Segmento" value={dynamics.segment} />
+                  <InfoTile icon={Clock} label="Última actividad" value={dynamics.lastActivity} />
+                  <InfoTile icon={UserRound} label="Propietario (Dynamics)" value={dynamics.caseOwner} />
+                  <InfoTile icon={Phone} label="Línea / destino" value={meta.to} mono />
+                </div>
+
+                <div className="mt-3 rounded-lg border border-[#c7d4ff] bg-[#f0f4ff] px-3 py-2.5 text-[11px] leading-relaxed text-[#001963]">
+                  <span className="font-extrabold">Notas CRM · </span>
+                  {dynamics.notes}
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  ID Twilio: <span className="font-mono">{meta.callSid}</span>
+                </p>
+              </div>
+
+              <DialogFooter className="flex w-full flex-row gap-2 border-t border-[#eef0f6] bg-white px-5 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 border-slate-300"
+                  onClick={rejectIncoming}
+                >
                   Rechazar
                 </Button>
                 <Button
                   type="button"
-                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+                  className="flex-1 bg-[#001963] font-semibold text-white hover:bg-[#0a2463]"
                   onClick={() => void answer()}
                 >
                   Descolgar
@@ -237,22 +313,27 @@ export function PortalVoiceLayer() {
             </>
           ) : null}
 
-          {active && meta ? (
+          {active && meta && dynamics ? (
             <>
-              <DialogHeader>
-                <div className="flex items-center gap-2 text-sky-800">
-                  <Phone className="h-6 w-6 shrink-0" />
-                  <DialogTitle className="text-lg">En llamada</DialogTitle>
+              <div className="bg-[#001963] px-5 py-3 text-white">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-5 w-5 shrink-0" aria-hidden />
+                  <DialogTitle className="text-base font-bold text-white">En llamada</DialogTitle>
                 </div>
-                <DialogDescription asChild>
-                  <div className="space-y-1 pt-2 text-left text-sm text-slate-700">
-                    <p className="font-mono font-medium">{meta.from}</p>
-                    {meta.callerName ? <p>{meta.callerName}</p> : null}
-                    <p className="text-xs text-slate-500">Estado: {String(active.status())}</p>
-                  </div>
-                </DialogDescription>
+                <p className="mt-1 truncate text-sm font-semibold text-white/95">{dynamics.contactName}</p>
+                <p className="font-mono text-xs text-white/80">{dynamics.phoneDisplay}</p>
+              </div>
+              <DialogHeader className="sr-only">
+                <DialogDescription>Llamada activa</DialogDescription>
               </DialogHeader>
-              <DialogFooter className="flex flex-wrap gap-2 sm:justify-end">
+              <div className="space-y-2 px-5 py-3 text-left text-xs text-slate-600">
+                <p>
+                  <span className="font-semibold text-slate-500">Cuenta: </span>
+                  {dynamics.accountName}
+                </p>
+                <p className="text-slate-500">Estado Twilio: {String(active.status())}</p>
+              </div>
+              <DialogFooter className="gap-2 border-t border-[#eef0f6] px-5 py-3 sm:justify-end">
                 <Button type="button" variant="secondary" onClick={toggleMute}>
                   {muted ? 'Quitar silencio' : 'Silenciar'}
                 </Button>
