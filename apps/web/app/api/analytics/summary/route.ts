@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/admin';
 import { buildAnalyticsSummary } from '@/lib/analytics/buildSummary';
 import { previousWindow, rangeBounds } from '@/lib/analytics/range';
 import type { AnalyticsChannel, AnalyticsRange, AnalyticsView, VoiceCallRecord } from '@/lib/analytics/types';
@@ -14,7 +13,7 @@ function parseEnum<T extends string>(raw: string | null, allowed: readonly T[], 
 
 /**
  * GET /api/analytics/summary — agregados reales (voice_call_records + agents).
- * Requiere sesión (cookies). Usa service role solo tras validar usuario.
+ * Requiere sesión (cookies). Lee con el JWT del usuario (sin service role).
  */
 export async function GET(req: Request) {
   try {
@@ -47,8 +46,7 @@ export async function GET(req: Request) {
     const { from: rangeFrom, to: rangeTo } = rangeBounds(rangeKey);
     const { from: prevFrom, to: prevTo } = previousWindow(rangeFrom, rangeTo);
 
-    const admin = createSupabaseServiceRoleClient();
-    const { data: rows, error: rowErr } = await admin
+    const { data: rows, error: rowErr } = await userClient
       .from('voice_call_records')
       .select('*')
       .is('parent_call_sid', null)
@@ -71,7 +69,7 @@ export async function GET(req: Request) {
       return t >= prevFrom.getTime() && t <= prevTo.getTime();
     });
 
-    const { data: agentRows, error: agentErr } = await admin
+    const { data: agentRows, error: agentErr } = await userClient
       .from('agents')
       .select('user_id, display_name, operational_status, presence_status');
 

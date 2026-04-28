@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/admin';
 import { rangeBounds } from '@/lib/analytics/range';
 import type { AnalyticsChannel, AnalyticsRange, AnalyticsView, VoiceCallRecord } from '@/lib/analytics/types';
 
@@ -48,8 +47,7 @@ export async function GET(req: Request) {
     );
 
     const { from: rangeFrom, to: rangeTo } = rangeBounds(rangeKey);
-    const admin = createSupabaseServiceRoleClient();
-    const { data: rows, error: rowErr } = await admin
+    const { data: rows, error: rowErr } = await userClient
       .from('voice_call_records')
       .select('*')
       .is('parent_call_sid', null)
