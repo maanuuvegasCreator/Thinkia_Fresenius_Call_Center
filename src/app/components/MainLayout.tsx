@@ -24,6 +24,7 @@ import {
   useAgentPresence,
   type AgentPresenceUi,
 } from '../context/AgentPresenceContext';
+import { performPortalLogout } from '@/lib/portalLogout';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -294,7 +295,8 @@ function MainLayoutInner({ children }: MainLayoutProps) {
             variant="ghost"
             size="sm"
             className="w-full justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-sm h-10 gap-2"
-            onClick={() => navigate('/')}
+            type="button"
+            onClick={() => void performPortalLogout()}
           >
             <LogOut className="h-4 w-4" />
             Finalizar Sesión

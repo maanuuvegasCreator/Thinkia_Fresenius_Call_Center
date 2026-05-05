@@ -6,6 +6,7 @@ import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
 import { Loader2, Phone } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
+import { clearSupabaseBrowserStorageOnly } from '@/lib/clearSupabaseLocalStorage';
 
 /** Sesión viva en cookies Next (tras handoff); localStorage `sb-*` del portal suele estar vacío. */
 function hasServerSession(res: Response): boolean {
@@ -21,21 +22,6 @@ function sameOriginHref(candidate: string): string | null {
     /* noop */
   }
   return null;
-}
-
-/** No llames a `signOut()` global aquí: revoca el refresh token y rompe la sesión que Next guardó en cookies vía handoff. */
-function clearSupabaseBrowserStorageOnly() {
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      if (k.startsWith('sb-')) {
-        localStorage.removeItem(k);
-      }
-    }
-  } catch {
-    /* noop */
-  }
 }
 
 export function Login() {

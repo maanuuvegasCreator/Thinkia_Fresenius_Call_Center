@@ -9,7 +9,8 @@ import {
 } from '@/lib/auth-cors-helpers';
 
 /**
- * Tras login en la app Vite, copia la sesión Supabase a cookies del dominio Next (softphone /api/token).
+ * Cierra sesión Supabase en las cookies HTTP-only (misma sesión que `/api/auth/handoff`).
+ * El portal debe llamar con `credentials: 'include'` y luego redirigir a `/portal/`.
  */
 export async function OPTIONS(request: Request) {
   const origin = isAllowedOrigin(request, request.headers.get('origin'));
@@ -25,40 +26,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Origin no permitido' }, { status: 403 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
-  }
-
-  const { access_token, refresh_token } = body as {
-    access_token?: string;
-    refresh_token?: string;
-  };
-
-  if (!access_token || !refresh_token) {
-    return NextResponse.json({ error: 'Faltan access_token o refresh_token' }, { status: 400 });
-  }
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    return NextResponse.json({ error: 'Supabase no configurado en el servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Supabase no configurado en el servidor' }, { status: 500, headers: corsHeaders(origin) });
   }
 
   const cookieHeader = request.headers.get('cookie') ?? '';
-  let response = NextResponse.json({ ok: true }, { headers: corsHeaders(origin) });
+  const response = NextResponse.json({ ok: true }, { headers: corsHeaders(origin) });
 
   const originHeader = request.headers.get('origin');
   const ownOrigin = requestOwnOrigin(request);
   const originCanon = originHeader?.trim() ? canonicalOrigin(originHeader) : null;
   const isSameOrigin = Boolean(originCanon && ownOrigin && originCanon === ownOrigin);
 
-  /**
-   * Mismo dominio (portal embebido en `/portal`): `SameSite=Lax` + `Secure` para que el navegador guarde bien
-   * las cookies del `fetch` al handoff. Cross-site (legacy Vite en otro puerto/host): `None` + `Secure` en HTTPS.
-   */
   const cookieSecure = ownOrigin ? new URL(ownOrigin).protocol === 'https:' : true;
   const cookieSameSite: 'lax' | 'none' = isSameOrigin ? 'lax' : 'none';
 
@@ -82,14 +63,7 @@ export async function POST(request: Request) {
     },
   });
 
-  const { error } = await supabase.auth.setSession({
-    access_token,
-    refresh_token,
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 401, headers: corsHeaders(origin) });
-  }
+  await supabase.auth.signOut();
 
   return response;
 }
