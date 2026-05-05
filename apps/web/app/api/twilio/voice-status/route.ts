@@ -1,6 +1,11 @@
 import twilio from 'twilio';
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/admin';
+import {
+  mapTwilioCallStatusToLifecycle,
+  mapTwilioDirection,
+  type TwilioDirection,
+} from '@/lib/aicx/twilio-session-map';
 import { userIdFromTwilioClientIdentity } from '@/lib/twilio-identity';
 
 export const dynamic = 'force-dynamic';
@@ -83,11 +88,34 @@ export async function POST(request: Request) {
     agent_user_id: agentUserId,
   };
 
+  const lifecycleStatus = mapTwilioCallStatusToLifecycle(callStatus);
+  const aicxDirection = mapTwilioDirection(direction);
+  const aicxRow = {
+    call_provider: 'TWILIO' as const,
+    provider_call_id: callSid,
+    parent_provider_call_id: parentCallSid,
+    direction: aicxDirection,
+    call_status: lifecycleStatus,
+    duration_seconds: durationSeconds,
+    phone_number_from: fromNumber,
+    phone_number_to: toNumber,
+    account_sid: accountSid,
+    agent_user_id: agentUserId,
+  };
+
   try {
     const admin = createSupabaseServiceRoleClient();
     const { error } = await admin.from('voice_call_records').upsert(row, { onConflict: 'twilio_call_sid' });
     if (error) {
       console.error('voice_call_records upsert', error);
+      return new NextResponse('Server Error', { status: 500 });
+    }
+
+    const { error: aicxErr } = await admin.from('aicx_call_session').upsert(aicxRow, {
+      onConflict: 'call_provider,provider_call_id',
+    });
+    if (aicxErr) {
+      console.error('aicx_call_session upsert', aicxErr);
       return new NextResponse('Server Error', { status: 500 });
     }
   } catch (e) {
