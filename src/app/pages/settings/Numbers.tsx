@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAgentPresence } from '../../context/AgentPresenceContext';
 import { Search, ChevronDown, Download, MoreVertical, X, Phone, Settings as SettingsIcon, Users, Plug, ChevronLeft, Plus, Info } from 'lucide-react';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
@@ -154,6 +155,9 @@ const countryFlags: Record<string, string> = {
 };
 
 export function Numbers() {
+  const { portalRole } = useAgentPresence();
+  const numberScreenReadOnly = portalRole === 'agent';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [countryFilter, setCountryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -238,14 +242,16 @@ export function Numbers() {
             <h1 className="text-2xl font-semibold">Números</h1>
             
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleDownloadCSV}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Descargar CSV
-              </Button>
+              {!numberScreenReadOnly ? (
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadCSV}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar CSV
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -389,7 +395,7 @@ export function Numbers() {
                             setIsConfigDialogOpen(true);
                           }}
                         >
-                          Configuración
+                          {numberScreenReadOnly ? 'Ver configuración' : 'Configuración'}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -463,7 +469,17 @@ export function Numbers() {
               </div>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            {numberScreenReadOnly ? (
+              <div className="mx-6 -mt-1 mb-2 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                Solo lectura: como agente puedes consultar la configuración del número, pero no modificarla.
+              </div>
+            ) : null}
+
+            <fieldset
+              disabled={numberScreenReadOnly}
+              className="flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0 m-0"
+            >
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
               {/* Call Distribution Tab */}
               {configTab === 'distribution' && (
                 <div className="space-y-6">
@@ -1044,19 +1060,22 @@ export function Numbers() {
                 </div>
               )}
             </div>
+            </fieldset>
 
             {/* Footer */}
             <div className="border-t p-4 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setIsConfigDialogOpen(false)}>
-                Cancelar
+                {numberScreenReadOnly ? 'Cerrar' : 'Cancelar'}
               </Button>
-              <Button
-                className="text-white"
-                style={{ backgroundColor: '#03091D' }}
-                onClick={() => setIsConfigDialogOpen(false)}
-              >
-                Guardar cambios
-              </Button>
+              {!numberScreenReadOnly ? (
+                <Button
+                  className="text-white"
+                  style={{ backgroundColor: '#03091D' }}
+                  onClick={() => setIsConfigDialogOpen(false)}
+                >
+                  Guardar cambios
+                </Button>
+              ) : null}
             </div>
           </DialogContent>
         </Dialog>
