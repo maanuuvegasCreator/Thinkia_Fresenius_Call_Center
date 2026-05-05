@@ -132,7 +132,7 @@ function MainLayoutInner({ children }: MainLayoutProps) {
 
   const menuItems = useMemo(() => {
     if (isLeadPortalRole(portalRole)) return ALL_MENU_ITEMS;
-    const agentPaths = new Set(['/dashboard', '/contacts', '/call-history', '/analytics']);
+    const agentPaths = new Set(['/dashboard', '/contacts', '/teams', '/call-history', '/analytics']);
     return ALL_MENU_ITEMS.filter((i) => agentPaths.has(i.path));
   }, [portalRole]);
 

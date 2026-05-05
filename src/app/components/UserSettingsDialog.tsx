@@ -42,6 +42,8 @@ type TabType = 'general' | 'availability' | 'preferences';
 interface UserSettingsDialogProps {
   user: TeamMember;
   teams: Team[];
+  /** Agente: puede ver pestañas y datos; no editar (portal_role = agent). */
+  readOnly?: boolean;
   onClose: () => void;
   onSave: () => void;
   onChangeRole?: (role: 'administrador' | 'supervisor' | 'agente') => void;
@@ -50,10 +52,22 @@ interface UserSettingsDialogProps {
   onDelete?: () => void;
 }
 
-export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole, onChangeAvailability, onChangeTeam, onDelete }: UserSettingsDialogProps) {
+export function UserSettingsDialog({
+  user,
+  teams,
+  readOnly = false,
+  onClose,
+  onSave,
+  onChangeRole,
+  onChangeAvailability,
+  onChangeTeam,
+  onDelete,
+}: UserSettingsDialogProps) {
+  const ro = readOnly;
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [firstName, setFirstName] = useState(user.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user.name.split(' ').slice(1).join(' ') || '');
+  const [emailEdit, setEmailEdit] = useState(user.email);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isVacationDialogOpen, setIsVacationDialogOpen] = useState(false);
   const [vacationName, setVacationName] = useState('');
@@ -117,6 +131,11 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
         {/* Content */}
         <div className="p-6 max-h-[calc(100vh-300px)] overflow-y-auto">
+          {ro ? (
+            <div className="mb-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+              Solo lectura: con rol Agente puedes consultar los datos pero no modificarlos.
+            </div>
+          ) : null}
           {activeTab === 'general' && (
             <div className="space-y-6">
               {/* Profile Settings */}
@@ -125,7 +144,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="extension">Extensión</Label>
-                  <Input id="extension" placeholder="815" />
+                  <Input id="extension" placeholder="815" readOnly={ro} className={ro ? 'bg-slate-50' : undefined} />
                 </div>
 
                 {/* Personal Information */}
@@ -151,6 +170,8 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="Nombre"
+                          readOnly={ro}
+                          className={ro ? 'bg-slate-50' : undefined}
                         />
                       </div>
 
@@ -161,6 +182,8 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Apellidos"
+                          readOnly={ro}
+                          className={ro ? 'bg-slate-50' : undefined}
                         />
                       </div>
                     </div>
@@ -168,10 +191,19 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue={user.email} />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={emailEdit}
+                      onChange={(e) => setEmailEdit(e.target.value)}
+                      readOnly={ro}
+                      className={ro ? 'bg-slate-50' : undefined}
+                    />
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2 text-sm text-teal-600 cursor-pointer hover:text-teal-700">
+                  <div
+                    className={`mt-4 flex items-center gap-2 text-sm text-teal-600 ${ro ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-teal-700'}`}
+                  >
                     <Upload className="h-4 w-4" />
                     <span>Subir foto</span>
                   </div>
@@ -186,8 +218,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   {/* Agent Role */}
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeRole?.('agente')}
-                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors ${
+                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.role === 'agente'
                         ? 'border-gray-300 bg-gray-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -214,8 +248,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   {/* Supervisor Role */}
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeRole?.('supervisor')}
-                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors ${
+                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.role === 'supervisor'
                         ? 'border-teal-500 bg-teal-50'
                         : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
@@ -242,8 +278,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   {/* Admin Role */}
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeRole?.('administrador')}
-                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors ${
+                    className={`w-full p-4 border-2 rounded-lg text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.role === 'administrador'
                         ? 'border-gray-300 bg-gray-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -278,6 +316,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   <div className="p-4 border rounded-lg">
                     <Label className="mb-3 block font-semibold">Disponibilidad</Label>
                     <Select
+                      disabled={ro}
                       value={user.availability}
                       onValueChange={(value) => onChangeAvailability?.(value as 'accept' | 'unavailable' | 'auto' | 'do-not-disturb' | 'be-right-back' | 'appear-away')}
                     >
@@ -323,6 +362,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   <div className="p-4 border rounded-lg">
                     <Label className="mb-3 block font-semibold">Equipo</Label>
                     <Select
+                      disabled={ro}
                       defaultValue={teams.find(t => t.name === user.teamName)?.id}
                       onValueChange={(value) => onChangeTeam?.(value)}
                     >
@@ -341,7 +381,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                 </div>
 
                 {/* Eliminar usuario */}
-                {!showDeleteConfirm ? (
+                {!ro && !showDeleteConfirm ? (
                   <Button
                     size="sm"
                     className="mt-4 text-white"
@@ -350,7 +390,8 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   >
                     Eliminar usuario
                   </Button>
-                ) : (
+                ) : null}
+                {!ro && showDeleteConfirm ? (
                   <div className="mt-4 p-4 border-2 border-red-200 bg-red-50 rounded-lg">
                     <p className="text-sm text-red-800 mb-3">
                       ¿Estás seguro de que quieres eliminar a <strong>{user.name}</strong>? Esta acción no se puede deshacer.
@@ -376,7 +417,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                       </Button>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           )}
@@ -387,8 +428,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                 <h3 className="text-lg font-semibold mb-4">Disponibilidad</h3>
                 <div className="space-y-1.5">
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeAvailability?.('accept')}
-                    className={`w-full p-2 border rounded-md text-left transition-colors ${
+                    className={`w-full p-2 border rounded-md text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.availability === 'accept'
                         ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 hover:border-green-300'
@@ -405,8 +448,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   </button>
 
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeAvailability?.('unavailable')}
-                    className={`w-full p-2 border rounded-md text-left transition-colors ${
+                    className={`w-full p-2 border rounded-md text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.availability === 'unavailable'
                         ? 'border-red-500 bg-red-50'
                         : 'border-gray-200 hover:border-red-300'
@@ -423,8 +468,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   </button>
 
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeAvailability?.('do-not-disturb')}
-                    className={`w-full p-2 border rounded-md text-left transition-colors ${
+                    className={`w-full p-2 border rounded-md text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.availability === 'do-not-disturb'
                         ? 'border-red-500 bg-red-50'
                         : 'border-gray-200 hover:border-red-300'
@@ -441,8 +488,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   </button>
 
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeAvailability?.('be-right-back')}
-                    className={`w-full p-2 border rounded-md text-left transition-colors ${
+                    className={`w-full p-2 border rounded-md text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.availability === 'be-right-back'
                         ? 'border-yellow-500 bg-yellow-50'
                         : 'border-gray-200 hover:border-yellow-300'
@@ -459,8 +508,10 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   </button>
 
                   <button
+                    type="button"
+                    disabled={ro}
                     onClick={() => onChangeAvailability?.('appear-away')}
-                    className={`w-full p-2 border rounded-md text-left transition-colors ${
+                    className={`w-full p-2 border rounded-md text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       user.availability === 'appear-away'
                         ? 'border-yellow-500 bg-yellow-50'
                         : 'border-gray-200 hover:border-yellow-300'
@@ -514,6 +565,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={ro}
                     style={{ borderColor: '#03091D', color: '#03091D' }}
                     onClick={() => setIsVacationDialogOpen(true)}
                   >
@@ -527,7 +579,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                         <p className="font-medium text-sm text-gray-900">Vacaciones de verano</p>
                         <p className="text-xs text-gray-600">1 Ago 2026 - 15 Ago 2026</p>
                       </div>
-                      <button className="text-red-600 hover:text-red-700 text-xs">
+                      <button type="button" disabled={ro} className="text-red-600 hover:text-red-700 text-xs disabled:opacity-50">
                         Eliminar
                       </button>
                     </div>
@@ -538,7 +590,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                         <p className="font-medium text-sm text-gray-900">Navidad</p>
                         <p className="text-xs text-gray-600">24 Dic 2026 - 6 Ene 2027</p>
                       </div>
-                      <button className="text-red-600 hover:text-red-700 text-xs">
+                      <button type="button" disabled={ro} className="text-red-600 hover:text-red-700 text-xs disabled:opacity-50">
                         Eliminar
                       </button>
                     </div>
@@ -556,7 +608,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="caller-id">Número mostrado a las personas que llaman</Label>
-                    <Select defaultValue="default">
+                    <Select disabled={ro} defaultValue="default">
                       <SelectTrigger id="caller-id">
                         <SelectValue />
                       </SelectTrigger>
@@ -569,7 +621,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   <div className="space-y-2">
                     <Label htmlFor="prefix">Prefijo telefónico predeterminado</Label>
-                    <Select defaultValue="es">
+                    <Select disabled={ro} defaultValue="es">
                       <SelectTrigger id="prefix">
                         <SelectValue />
                       </SelectTrigger>
@@ -583,7 +635,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   <div className="space-y-2">
                     <Label htmlFor="ringtone">Tono de llamada</Label>
-                    <Select defaultValue="default">
+                    <Select disabled={ro} defaultValue="default">
                       <SelectTrigger id="ringtone">
                         <SelectValue />
                       </SelectTrigger>
@@ -597,7 +649,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
 
                   <div className="space-y-2">
                     <Label htmlFor="wrap-time">Tiempo de finalización tras la llamada</Label>
-                    <Select defaultValue="30">
+                    <Select disabled={ro} defaultValue="30">
                       <SelectTrigger id="wrap-time">
                         <SelectValue />
                       </SelectTrigger>
@@ -622,7 +674,7 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                       <div className="flex-1">
                         <h4 className="font-medium mb-1">Desvío a número externo</h4>
                         <p className="text-sm text-gray-600 mb-3">Reenviar llamadas a un número de teléfono externo cuando no puedas responder</p>
-                        <Input placeholder="+34 600 000 000" />
+                        <Input readOnly={ro} placeholder="+34 600 000 000" className={ro ? 'bg-slate-50' : undefined} />
                       </div>
                     </div>
                   </div>
@@ -635,15 +687,17 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
         {/* Footer */}
         <div className="border-t px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
           <Button variant="outline" onClick={onClose}>
-            Cancelar
+            {ro ? 'Cerrar' : 'Cancelar'}
           </Button>
-          <Button
-            onClick={onSave}
-            className="text-white hover:opacity-90"
-            style={{ backgroundColor: '#03091D' }}
-          >
-            Guardar cambios
-          </Button>
+          {!ro ? (
+            <Button
+              onClick={onSave}
+              className="text-white hover:opacity-90"
+              style={{ backgroundColor: '#03091D' }}
+            >
+              Guardar cambios
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -663,7 +717,9 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                   id="vacation-name"
                   placeholder="Ej: Vacaciones de verano"
                   value={vacationName}
+                  readOnly={ro}
                   onChange={(e) => setVacationName(e.target.value)}
+                  className={ro ? 'bg-slate-50' : undefined}
                 />
               </div>
 
@@ -674,7 +730,9 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                     id="start-date"
                     type="date"
                     value={vacationStartDate}
+                    readOnly={ro}
                     onChange={(e) => setVacationStartDate(e.target.value)}
+                    className={ro ? 'bg-slate-50' : undefined}
                   />
                 </div>
                 <div className="space-y-2">
@@ -683,7 +741,9 @@ export function UserSettingsDialog({ user, teams, onClose, onSave, onChangeRole,
                     id="end-date"
                     type="date"
                     value={vacationEndDate}
+                    readOnly={ro}
                     onChange={(e) => setVacationEndDate(e.target.value)}
+                    className={ro ? 'bg-slate-50' : undefined}
                   />
                 </div>
               </div>

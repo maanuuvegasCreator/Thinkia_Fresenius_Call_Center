@@ -28,6 +28,8 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { UserSettingsDialog } from '../components/UserSettingsDialog';
+import { useAgentPresence } from '../context/AgentPresenceContext';
+import { isLeadPortalRole } from '@/lib/portalRole';
 
 interface TeamMember {
   id: string;
@@ -154,6 +156,9 @@ const getAllUsers = (teams: Team[]): (TeamMember & { teamName: string })[] => {
 };
 
 export function Teams() {
+  const { portalRole } = useAgentPresence();
+  const profileReadOnly = portalRole === 'agent';
+
   const [activeTab, setActiveTab] = useState<'users' | 'teams'>('users');
   const [teams, setTeams] = useState<Team[]>(mockTeams);
   const [searchQuery, setSearchQuery] = useState('');
@@ -393,6 +398,7 @@ export function Teams() {
           <div className="p-6 border-b bg-white">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Todos los Usuarios</h2>
+              {isLeadPortalRole(portalRole) ? (
               <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -473,6 +479,7 @@ export function Teams() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              ) : null}
             </div>
 
             <div className="relative">
@@ -593,6 +600,7 @@ export function Teams() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Equipos</h2>
+                {isLeadPortalRole(portalRole) ? (
                 <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                   <DialogTrigger asChild>
                     <Button
@@ -641,6 +649,7 @@ export function Teams() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+                ) : null}
               </div>
 
               <div className="relative">
@@ -696,23 +705,25 @@ export function Teams() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h2 className="text-2xl font-semibold">{selectedTeam.name}</h2>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Editar equipo</DropdownMenuItem>
-                            <DropdownMenuItem>Asignar números</DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleDeleteTeam(selectedTeam.id)}
-                            >
-                              Eliminar equipo
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {isLeadPortalRole(portalRole) ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>Editar equipo</DropdownMenuItem>
+                              <DropdownMenuItem>Asignar números</DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteTeam(selectedTeam.id)}
+                              >
+                                Eliminar equipo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
                       </div>
                       <p className="text-muted-foreground mb-4">{selectedTeam.description}</p>
                       
@@ -733,6 +744,7 @@ export function Teams() {
                     <h3 className="text-lg font-semibold">
                       Miembros ({selectedTeam.members.length})
                     </h3>
+                    {isLeadPortalRole(portalRole) ? (
                     <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="outline">
@@ -795,6 +807,7 @@ export function Teams() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
+                    ) : null}
                   </div>
                 </div>
 
@@ -917,20 +930,36 @@ export function Teams() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditingMember({ teamId: selectedTeam.id, memberId: member.id });
-                                    }}
-                                  >
-                                    Cambiar disponibilidad
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>Editar permisos</DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleRemoveMember(selectedTeam.id, member.id)}
-                                  >
-                                    Eliminar del equipo
-                                  </DropdownMenuItem>
+                                  {isLeadPortalRole(portalRole) ? (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setEditingMember({ teamId: selectedTeam.id, memberId: member.id });
+                                        }}
+                                      >
+                                        Cambiar disponibilidad
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem>Editar permisos</DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => handleRemoveMember(selectedTeam.id, member.id)}
+                                      >
+                                        Eliminar del equipo
+                                      </DropdownMenuItem>
+                                    </>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedUserForProfile({
+                                          ...member,
+                                          teamName: selectedTeam.name,
+                                        });
+                                        setIsProfileDialogOpen(true);
+                                      }}
+                                    >
+                                      Ver ficha
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </td>
@@ -955,8 +984,10 @@ export function Teams() {
       {/* Diálogo de configuración de perfil */}
       {isProfileDialogOpen && selectedUserForProfile && (
         <UserSettingsDialog
+          key={selectedUserForProfile.id}
           user={selectedUserForProfile}
           teams={teams.map(t => ({ id: t.id, name: t.name }))}
+          readOnly={profileReadOnly}
           onClose={() => setIsProfileDialogOpen(false)}
           onSave={() => {
             // Aquí se guardarían los cambios
