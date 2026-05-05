@@ -28,7 +28,7 @@ export async function GET() {
 
     const { data: row, error: rowErr } = await supabase
       .from('agents')
-      .select('display_name, presence_status')
+      .select('display_name, presence_status, portal_role')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -43,6 +43,8 @@ export async function GET() {
     const presence =
       typeof ps === 'string' && ps ? agentPresenceDbToUi(ps) : 'unavailable';
 
+    const portalRoleRaw = (row as { portal_role?: string }).portal_role;
+
     return NextResponse.json(
       {
         userId: user.id,
@@ -50,6 +52,7 @@ export async function GET() {
         fullName,
         displayName: typeof row.display_name === 'string' ? row.display_name : null,
         presence,
+        portalRole: typeof portalRoleRaw === 'string' ? portalRoleRaw : 'agent',
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );

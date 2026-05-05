@@ -11,6 +11,7 @@
     "build:apk": "powershell -ExecutionPolicy Bypass -File ./scripts/build-apk-windows.ps1"
   },
   "dependencies": {
+    "@expo/vector-icons": "~14.0.4",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@supabase/supabase-js": "^2.49.1",
     "@twilio/voice-react-native-sdk": "2.0.0-preview.1",

@@ -1,4 +1,6 @@
+import { isLeadPortalRole } from '@/lib/portalRole';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAgentPresence } from '../context/AgentPresenceContext';
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,7 +18,7 @@ type AnalyticsView = 'supervisor' | 'agent';
 type AnalyticsChannel = 'global' | 'inbound' | 'outbound' | 'ai';
 
 type SummaryJson = {
-  meta?: { aiChannelEmpty?: boolean; dataSource?: string; timezone?: string };
+  meta?: { aiChannelEmpty?: boolean; dataSource?: string; timezone?: string; portalRole?: string };
   kpis: {
     totalCalls: number;
     totalCallsDeltaPct: number | null;
@@ -102,12 +104,20 @@ const B2 = '#90ABFF';
 const OR = '#ea580c';
 
 export default function Analytics() {
+  const { portalRole, loading: roleLoading } = useAgentPresence();
   const [view, setView] = useState<AnalyticsView>('supervisor');
   const [channel, setChannel] = useState<AnalyticsChannel>('global');
   const [range, setRange] = useState<AnalyticsRange>('today');
   const [data, setData] = useState<SummaryJson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const canSupervisorView = isLeadPortalRole(portalRole);
+
+  useEffect(() => {
+    if (!roleLoading && !canSupervisorView && view === 'supervisor') {
+      setView('agent');
+    }
+  }, [roleLoading, canSupervisorView, view]);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -183,9 +193,11 @@ export default function Analytics() {
           <div className="flex items-center">
             <span className="text-[15px] font-extrabold">Analytics</span>
             <div className="ml-6 flex">
-              <button type="button" className={tabClass(view === 'supervisor')} onClick={() => setView('supervisor')}>
-                Vista supervisor
-              </button>
+              {canSupervisorView ? (
+                <button type="button" className={tabClass(view === 'supervisor')} onClick={() => setView('supervisor')}>
+                  Vista supervisor
+                </button>
+              ) : null}
               <button type="button" className={tabClass(view === 'agent')} onClick={() => setView('agent')}>
                 Vista agente
               </button>

@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { parsePortalRole, type PortalRole } from '@/lib/portalRole';
 
 /** Alineado con `apps/web/lib/agent-presence.ts` y PATCH `/api/agents/presence`. */
 export type AgentPresenceUi =
@@ -23,6 +24,7 @@ type AgentsMeJson = {
   fullName?: string | null;
   displayName?: string | null;
   presence?: AgentPresenceUi;
+  portalRole?: string | null;
 };
 
 async function fetchAgentsMe(): Promise<AgentsMeJson> {
@@ -54,6 +56,8 @@ export type AgentPresenceContextValue = {
   /** Nombre legible (metadata Supabase o agents). */
   fullName: string | null;
   displayName: string | null;
+  /** Rol portal: agent | supervisor | admin (`agents.portal_role`). */
+  portalRole: PortalRole;
   presence: AgentPresenceUi;
   setPresence: (next: AgentPresenceUi) => Promise<void>;
   /** Solo en `available` el Voice SDK muestra el modal de entrante. */
@@ -70,6 +74,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
   const [fullName, setFullName] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [portalRole, setPortalRole] = useState<PortalRole>('agent');
   const [presence, setPresenceState] = useState<AgentPresenceUi>('available');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +90,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
         setFullName(null);
         setDisplayName(null);
         setUserId(null);
+        setPortalRole('agent');
         setPresenceState('available');
         return;
       }
@@ -92,6 +98,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       setEmail(data.email ?? null);
       setFullName(data.fullName ?? null);
       setDisplayName(data.displayName ?? null);
+      setPortalRole(parsePortalRole(data.portalRole));
       if (data.presence) {
         setPresenceState(data.presence);
       }
@@ -101,6 +108,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       setFullName(null);
       setDisplayName(null);
       setUserId(null);
+      setPortalRole('agent');
     } finally {
       setLoading(false);
     }
@@ -141,6 +149,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       email,
       fullName,
       displayName,
+      portalRole,
       presence,
       setPresence,
       acceptsIncomingCalls,
@@ -148,7 +157,7 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       loading,
       error,
     }),
-    [email, fullName, displayName, presence, setPresence, acceptsIncomingCalls, avatarLetter, loading, error]
+    [email, fullName, displayName, portalRole, presence, setPresence, acceptsIncomingCalls, avatarLetter, loading, error]
   );
 
   return <AgentPresenceContext.Provider value={value}>{children}</AgentPresenceContext.Provider>;

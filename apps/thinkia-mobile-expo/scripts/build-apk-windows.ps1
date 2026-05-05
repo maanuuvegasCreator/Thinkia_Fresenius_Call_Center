@@ -1,7 +1,8 @@
 # Build APK release (arm64-v8a) en Windows evitando "ninja build.ninja still dirty"
 # cuando el repo está en Escritorio / OneDrive / antivirus agresivo.
 #
-# Requisitos: Android SDK (local.properties con sdk.dir), JDK, .env con EXPO_PUBLIC_*.
+# Requisitos: Android SDK (local.properties con sdk.dir), JDK, .env con EXPO_PUBLIC_*,
+#   android/app/google-services.json (Firebase FCM; Twilio register() lo exige).
 # Uso (desde esta carpeta apps/thinkia-mobile-expo):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\build-apk-windows.ps1
 
@@ -32,11 +33,16 @@ if (-not (Test-Path $envFile)) {
 }
 Copy-Item -Force $envFile (Join-Path $tempRoot ".env")
 
+$googleServices = Join-Path $appRoot "android\app\google-services.json"
+if (-not (Test-Path $googleServices)) {
+  throw "Falta android\app\google-services.json (Firebase). Sin FCM, Twilio voice.register() suele tumbar la app al abrir. Crea un proyecto Firebase, añade la app Android com.thinkia.mobile y coloca el JSON ahí."
+}
+
 $env:NODE_ENV = "production"
-$gradleCache = Join-Path $env:TEMP "thinkia-gradle-project-cache"
 Set-Location (Join-Path $tempRoot "android")
 Write-Host "Gradle assembleRelease (puede tardar varios minutos)…"
-.\gradlew.bat assembleRelease --no-daemon --project-cache-dir $gradleCache -PreactNativeArchitectures=arm64-v8a
+# No usar --project-cache-dir: en algunos Windows falla al borrar buildOutputCleanup.lock (IOException).
+.\gradlew.bat assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 if ($LASTEXITCODE -ne 0) {
   throw "Gradle falló con código $LASTEXITCODE"
 }

@@ -13,6 +13,8 @@ node_modules/
 /out/
 apps/mobile-softphone/dist/
 apps/thinkia-mobile-expo/artifacts/
+apps/thinkia-mobile-expo/android/app/google-services.json
+apps/thinkia-mobile-expo/google-services.json
 
 # Misc
 .DS_Store

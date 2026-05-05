@@ -18,11 +18,15 @@ cd apps/thinkia-mobile-expo
 npm run build:apk
 ```
 
-Requisitos previos: **`android/local.properties`** con `sdk.dir=...` (Android SDK) y **`.env`** con `EXPO_PUBLIC_*` (mismo contenido que necesitas para `expo start`).
+Requisitos previos:
+
+- **`android/local.properties`** con `sdk.dir=...` (Android SDK).
+- **`.env`** con `EXPO_PUBLIC_*` (mismo contenido que necesitas para `expo start`).
+- **`android/app/google-services.json`** (Firebase): el SDK de Twilio en Android llama a `FirebaseMessaging.getInstance().getToken()` al registrarse. Sin Firebase bien configurado, la app puede **cerrarse sola** justo al mostrar «Registrando en Twilio…». Crea un proyecto en [Firebase Console](https://console.firebase.google.com), añade una app Android con el id **`com.thinkia.mobile`**, activa Cloud Messaging y descarga el JSON a `apps/thinkia-mobile-expo/android/app/google-services.json`.
 
 Alternativa manual (tras copiar el proyecto a `C:\Temp\...`):
 
-`.\gradlew.bat assembleRelease --no-daemon --project-cache-dir C:\Temp\thinkia-gradle-project-cache -PreactNativeArchitectures=arm64-v8a`
+`.\gradlew.bat assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a` (sin `--project-cache-dir` en algunos equipos Windows falla al borrar `buildOutputCleanup.lock`).
 
 Exporta `NODE_ENV=production` antes de Gradle si ves avisos de Expo al empaquetar.
 
@@ -42,7 +46,7 @@ npx expo run:ios
 npx expo run:android
 ```
 
-`@twilio/voice-react-native-sdk@2.0.0-preview.1` está alineado con **Expo 52** según Twilio. Para **llamadas entrantes en Android** añade `google-services.json` en esta carpeta (Expo lo enlaza si existe; ver `app.config.ts`).
+`@twilio/voice-react-native-sdk@2.0.0-preview.1` está alineado con **Expo 52** según Twilio. En Android, **FCM es obligatorio para `Voice.register()`**: el `google-services.json` debe estar en **`android/app/`** (y el plugin `com.google.gms.google-services` ya está aplicado en el `build.gradle` nativo). `app.config.ts` usa la misma ruta si ejecutas `expo prebuild`.
 
 ## Funcionalidad en la app
 

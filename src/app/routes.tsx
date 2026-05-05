@@ -12,6 +12,7 @@ import { SettingsPlaceholder } from './pages/settings/SettingsPlaceholder';
 import { CallSettings } from './pages/settings/CallSettings';
 import { Integrations } from './pages/settings/Integrations';
 import { MainLayout } from './components/MainLayout';
+import { PortalRouteGuard } from './components/PortalRouteGuard';
 import { Contacts } from './pages/Contacts';
 
 export const router = createBrowserRouter(
@@ -40,7 +41,9 @@ export const router = createBrowserRouter(
     path: '/numbers',
     element: (
       <MainLayout>
-        <Numbers />
+        <PortalRouteGuard>
+          <Numbers />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -48,7 +51,9 @@ export const router = createBrowserRouter(
     path: '/teams',
     element: (
       <MainLayout>
-        <Teams />
+        <PortalRouteGuard>
+          <Teams />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -56,7 +61,9 @@ export const router = createBrowserRouter(
     path: '/monitoring',
     element: (
       <MainLayout>
-        <LiveMonitoring />
+        <PortalRouteGuard>
+          <LiveMonitoring />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -72,7 +79,9 @@ export const router = createBrowserRouter(
     path: '/team-directory',
     element: (
       <MainLayout>
-        <TeamDirectory />
+        <PortalRouteGuard>
+          <TeamDirectory />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -88,7 +97,9 @@ export const router = createBrowserRouter(
     path: '/activity',
     element: (
       <MainLayout>
-        <Activity />
+        <PortalRouteGuard>
+          <Activity />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -96,7 +107,9 @@ export const router = createBrowserRouter(
     path: '/settings',
     element: (
       <MainLayout>
-        <CallSettings />
+        <PortalRouteGuard>
+          <CallSettings />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -104,7 +117,9 @@ export const router = createBrowserRouter(
     path: '/settings/call-settings',
     element: (
       <MainLayout>
-        <CallSettings />
+        <PortalRouteGuard>
+          <CallSettings />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },
@@ -112,7 +127,9 @@ export const router = createBrowserRouter(
     path: '/settings/integrations',
     element: (
       <MainLayout>
-        <Integrations />
+        <PortalRouteGuard>
+          <Integrations />
+        </PortalRouteGuard>
       </MainLayout>
     ),
   },

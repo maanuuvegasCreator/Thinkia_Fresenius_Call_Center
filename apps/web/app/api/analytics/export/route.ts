@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { rangeBounds } from '@/lib/analytics/range';
 import type { AnalyticsChannel, AnalyticsRange, AnalyticsView, VoiceCallRecord } from '@/lib/analytics/types';
+import { getPortalRoleForUser, isLeadPortalRole } from '@/lib/portal-role';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,11 +36,13 @@ export async function GET(req: Request) {
       ['today', 'week', 'month'] as const,
       'today'
     );
-    const view = parseEnum<AnalyticsView>(
+    const portalRole = await getPortalRoleForUser(userClient, user.id);
+    const requestedView = parseEnum<AnalyticsView>(
       searchParams.get('view'),
       ['supervisor', 'agent'] as const,
       'supervisor'
     );
+    const view: AnalyticsView = isLeadPortalRole(portalRole) ? requestedView : 'agent';
     const channel = parseEnum<AnalyticsChannel>(
       searchParams.get('channel'),
       ['global', 'inbound', 'outbound', 'ai'] as const,

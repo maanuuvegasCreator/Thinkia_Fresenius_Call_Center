@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const googleServicesPath = path.join(__dirname, 'google-services.json');
+// Misma ruta que usa Gradle (`android/app/google-services.json`). Descárgala desde la consola de Firebase (app Android `com.thinkia.mobile`).
+const googleServicesPath = path.join(__dirname, 'android', 'app', 'google-services.json');
 const hasGoogleServices = fs.existsSync(googleServicesPath);
 
 export default () => ({
@@ -24,7 +25,7 @@ export default () => ({
   },
   android: {
     package: 'com.thinkia.mobile',
-    ...(hasGoogleServices ? { googleServicesFile: './google-services.json' as const } : {}),
+    ...(hasGoogleServices ? { googleServicesFile: './android/app/google-services.json' as const } : {}),
     permissions: ['android.permission.RECORD_AUDIO', 'android.permission.MODIFY_AUDIO_SETTINGS'],
   },
 });

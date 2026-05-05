@@ -1,4 +1,5 @@
-import { ReactNode, useState } from 'react';
+import { isLeadPortalRole, type PortalRole } from '@/lib/portalRole';
+import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
   Phone,
@@ -28,7 +29,7 @@ interface MainLayoutProps {
   children: ReactNode;
 }
 
-const menuItems = [
+const ALL_MENU_ITEMS = [
   {
     icon: Phone,
     label: 'Centro de Llamadas',
@@ -116,11 +117,24 @@ function getStatusConfig(status: AgentPresenceUi) {
   }
 }
 
+function roleLabel(role: PortalRole): string {
+  if (role === 'admin') return 'Administrador';
+  if (role === 'supervisor') return 'Supervisor';
+  return 'Agente';
+}
+
 function MainLayoutInner({ children }: MainLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { email, displayName, fullName, presence, setPresence, avatarLetter, loading, error } = useAgentPresence();
+  const { email, displayName, fullName, portalRole, presence, setPresence, avatarLetter, loading, error } =
+    useAgentPresence();
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+
+  const menuItems = useMemo(() => {
+    if (isLeadPortalRole(portalRole)) return ALL_MENU_ITEMS;
+    const agentPaths = new Set(['/dashboard', '/contacts', '/call-history', '/analytics']);
+    return ALL_MENU_ITEMS.filter((i) => agentPaths.has(i.path));
+  }, [portalRole]);
 
   const isActivePath = (path: string) => {
     if (path === '/dashboard') {
@@ -197,6 +211,9 @@ function MainLayoutInner({ children }: MainLayoutProps) {
                 <p className="text-sm font-medium text-slate-900 truncate" title={profileLabel}>
                   {loading ? 'Cargando…' : profileLabel}
                 </p>
+                {!loading ? (
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{roleLabel(portalRole)}</p>
+                ) : null}
                 <p className={cn('text-xs font-semibold', currentStatusConfig.textColor)}>
                   {currentStatusConfig.label}
                 </p>

@@ -174,3 +174,8 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Solo si existe el JSON de Firebase (Twilio register → FCM). Sin esto la app puede cerrarse al registrarse.
+if (file("google-services.json").exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}

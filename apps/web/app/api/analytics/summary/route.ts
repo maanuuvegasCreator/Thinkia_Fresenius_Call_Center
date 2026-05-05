@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildAnalyticsSummary } from '@/lib/analytics/buildSummary';
 import { previousWindow, rangeBounds } from '@/lib/analytics/range';
 import type { AnalyticsChannel, AnalyticsRange, AnalyticsView, VoiceCallRecord } from '@/lib/analytics/types';
+import { getPortalRoleForUser, isLeadPortalRole } from '@/lib/portal-role';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,11 +33,13 @@ export async function GET(req: Request) {
       ['today', 'week', 'month'] as const,
       'today'
     );
-    const view = parseEnum<AnalyticsView>(
+    const portalRole = await getPortalRoleForUser(userClient, user.id);
+    const requestedView = parseEnum<AnalyticsView>(
       searchParams.get('view'),
       ['supervisor', 'agent'] as const,
       'supervisor'
     );
+    const view: AnalyticsView = isLeadPortalRole(portalRole) ? requestedView : 'agent';
     const channel = parseEnum<AnalyticsChannel>(
       searchParams.get('channel'),
       ['global', 'inbound', 'outbound', 'ai'] as const,
@@ -69,13 +72,16 @@ export async function GET(req: Request) {
       return t >= prevFrom.getTime() && t <= prevTo.getTime();
     });
 
-    const { data: agentRows, error: agentErr } = await userClient
+    const { data: agentRowsRaw, error: agentErr } = await userClient
       .from('agents')
       .select('user_id, display_name, operational_status, presence_status');
 
     if (agentErr) {
       return NextResponse.json({ error: agentErr.message }, { status: 500 });
     }
+
+    const agentRows =
+      isLeadPortalRole(portalRole) ? (agentRowsRaw ?? []) : (agentRowsRaw ?? []).filter((a) => a.user_id === user.id);
 
     const summary = buildAnalyticsSummary({
       rangeKey,
@@ -88,10 +94,11 @@ export async function GET(req: Request) {
       userId: user.id,
       rowsCurrent,
       rowsPrev,
-      agents: agentRows ?? [],
-    });
+      agents: agentRows,
+    }) as Record<string, unknown>;
 
-    return NextResponse.json(summary, { headers: { 'Cache-Control': 'no-store' } });
+    const meta = { ...(typeof summary.meta === 'object' && summary.meta !== null ? summary.meta : {}), portalRole };
+    return NextResponse.json({ ...summary, meta }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error';
     return NextResponse.json({ error: msg }, { status: 500 });
