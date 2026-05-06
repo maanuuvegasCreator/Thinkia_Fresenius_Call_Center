@@ -59,6 +59,33 @@ interface Flow {
   };
 }
 
+function nodeMessageText(nodeType: string, cfg: any): string | null {
+  const presets = PRESETS[nodeType];
+  if (cfg?.customMessage && typeof cfg.customMessage === 'string') return cfg.customMessage;
+  const presetId = cfg?.preset;
+  if (presetId && presets) {
+    const p = presets.find((x) => x.id === presetId);
+    if (p?.text) return p.text;
+  }
+  return null;
+}
+
+function serializeFlowForServer(flow: Flow): Flow {
+  // Embed resolved message text so /api/voice can run without UI preset tables.
+  const copy: Flow = JSON.parse(JSON.stringify(flow)) as Flow;
+  for (const branch of copy.root.branches) {
+    for (const node of branch.nodes) {
+      if (node.type === 'audio_message' || node.type === 'waiting' || node.type === 'voicemail') {
+        const msg = nodeMessageText(node.type, node.config as any);
+        if (msg) {
+          (node.config as any).message_text = msg;
+        }
+      }
+    }
+  }
+  return copy;
+}
+
 const NODE_TYPES: NodeType[] = [
   { type: "time_rule", icon: Clock, label: "Regla de tiempo", color: "#03091D", desc: "Define horarios de atención" },
   { type: "date_rule", icon: Calendar, label: "Regla de fecha", color: "#03091D", desc: "Festivos y excepciones" },
@@ -616,6 +643,7 @@ export default function IVRFlowBuilder({ businessHoursSchedule }: IVRFlowBuilder
   const [flow, setFlow] = useState<Flow>(() => getInitialFlow(businessHoursSchedule));
   const [selected, setSelected] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const findNode = useCallback((id: string) => {
     if (flow.root.id === id) return flow.root;
@@ -706,7 +734,47 @@ export default function IVRFlowBuilder({ businessHoursSchedule }: IVRFlowBuilder
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 11, color: "#9CA3AF" }}>{totalNodes} nodos · 2 ramas</span>
           <div style={{ height: 20, width: 1, background: "#E5E7EB" }} />
-          <button onClick={() => setDirty(false)} style={{ padding: "6px 14px", background: "#03091D", color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", opacity: dirty ? 1 : 0.5 }}>Publicar</button>
+          <button
+            disabled={!dirty || publishing}
+            onClick={async () => {
+              setPublishing(true);
+              try {
+                const res = await fetch('/api/settings/ivr', {
+                  method: 'PUT',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    entryNumbers: flow.entryNumbers,
+                    flow: serializeFlowForServer(flow),
+                  }),
+                });
+                if (!res.ok) {
+                  const j = (await res.json().catch(() => null)) as any;
+                  throw new Error(j?.error ?? `Error publicando IVR (HTTP ${res.status})`);
+                }
+                setDirty(false);
+              } catch (e) {
+                // UI minimal: keep dirty true; user sees console if needed.
+                console.error(e);
+              } finally {
+                setPublishing(false);
+              }
+            }}
+            style={{
+              padding: "6px 14px",
+              background: "#03091D",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: !dirty || publishing ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+              opacity: !dirty || publishing ? 0.5 : 1,
+            }}
+          >
+            {publishing ? 'Publicando…' : 'Publicar'}
+          </button>
         </div>
       </div>
 

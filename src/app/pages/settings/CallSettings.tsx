@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
 import { Clock, PhoneForwarded, Mic, Eye, PhoneOff, Plus, MoreVertical, X, PhoneCall, ChevronDown, ChevronUp } from 'lucide-react';
 import IVRFlowBuilder from '../../components/IVRFlowBuilder';
+import { useEffect } from 'react';
 
 interface ScheduleConfig {
   enabled: boolean;
@@ -63,6 +64,75 @@ export function CallSettings() {
     sabado: { enabled: false, startTime: '08:00', endTime: '17:00' },
     domingo: { enabled: false, startTime: '08:00', endTime: '17:00' },
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings/call', { credentials: 'include', cache: 'no-store' });
+        if (!res.ok) return;
+        const j = (await res.json().catch(() => null)) as any;
+        const s = j?.settings;
+        if (!s || cancelled) return;
+        setWrapUpTime(String(s.wrap_up_seconds ?? '30'));
+        setAutoClose(Boolean(s.auto_close_conversation ?? false));
+        setAutoEndWrapUp(Boolean(s.auto_end_wrap_up ?? false));
+        setAlwaysOnTop(Boolean(s.always_on_top ?? false));
+        setExternalNumber(String(s.external_forward_number ?? ''));
+        setBlockedNumbers(
+          Array.isArray(s.blocked_numbers)
+            ? (s.blocked_numbers as string[]).map((n, i) => ({ id: String(i + 1), number: n, country: 'ES' }))
+            : []
+        );
+        setAutoRecordingEnabled(Boolean(s.inbound_recording_enabled ?? true));
+        setPauseRecordingEnabled(Boolean(s.inbound_pause_recording_enabled ?? true));
+        setOutboundRecordingEnabled(Boolean(s.outbound_recording_enabled ?? true));
+        setHoldMessageEnabled(Boolean(s.hold_message_enabled ?? true));
+        setHoldMessageDelay(String(s.hold_message_delay_seconds ?? '30'));
+        if (typeof s.business_hours_message === 'string') setBusinessHoursMessage(s.business_hours_message);
+        if (typeof s.after_hours_message === 'string') setAfterHoursMessage(s.after_hours_message);
+        if (typeof s.outbound_recording_message === 'string') setOutboundRecordingMessage(s.outbound_recording_message);
+        if (typeof s.hold_message === 'string') setHoldMessage(s.hold_message);
+      } catch {
+        /* noop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function saveSettings() {
+    const payload = {
+      settings: {
+        wrap_up_seconds: Number(wrapUpTime ?? 30),
+        auto_close_conversation: autoClose,
+        auto_end_wrap_up: autoEndWrapUp,
+        always_on_top: alwaysOnTop,
+        external_forward_number: externalNumber || null,
+        blocked_numbers: blockedNumbers.map((b) => b.number).filter(Boolean),
+        inbound_recording_enabled: autoRecordingEnabled,
+        inbound_pause_recording_enabled: pauseRecordingEnabled,
+        outbound_recording_enabled: outboundRecordingEnabled,
+        hold_message_enabled: holdMessageEnabled,
+        hold_message_delay_seconds: Number(holdMessageDelay ?? 30),
+        business_hours_message: businessHoursMessage,
+        after_hours_message: afterHoursMessage,
+        outbound_recording_message: outboundRecordingMessage,
+        hold_message: holdMessage,
+      },
+    };
+    const res = await fetch('/api/settings/call', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => null)) as any;
+      throw new Error(j?.error ?? `Error guardando (HTTP ${res.status})`);
+    }
+  }
 
   const handleScheduleChange = (day: string, field: 'enabled' | 'startTime' | 'endTime', value: boolean | string) => {
     setSchedule(prev => ({
@@ -576,7 +646,17 @@ export function CallSettings() {
           <Button variant="outline">
             Cancelar
           </Button>
-          <Button className="text-white" style={{ backgroundColor: '#03091D' }}>
+          <Button
+            className="text-white"
+            style={{ backgroundColor: '#03091D' }}
+            onClick={async () => {
+              try {
+                await saveSettings();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
             Guardar cambios
           </Button>
         </div>

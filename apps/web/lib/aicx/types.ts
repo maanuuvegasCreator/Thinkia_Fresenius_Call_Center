@@ -17,7 +17,8 @@ export type AicxCallLifecycleStatus =
   | 'FAILED'
   | 'CALLBACK_CREATED';
 
-export type AicxCrmSyncStatus = 'PENDING' | 'SENT' | 'CONFIRMED' | 'FAILED';
+/** Documento ACE: reconciliation revisa PENDING + ERROR; mantenemos FAILED por compatibilidad. */
+export type AicxCrmSyncStatus = 'PENDING' | 'SENT' | 'CONFIRMED' | 'FAILED' | 'ERROR';
 
 export type AicxCallAuditEvent =
   | 'SESSION_CREATED'

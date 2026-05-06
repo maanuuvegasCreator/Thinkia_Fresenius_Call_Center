@@ -23,6 +23,13 @@ function parseDuration(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseTwilioTimestamp(raw: string | null | undefined): Date | null {
+  const t = (raw ?? '').trim();
+  if (!t) return null;
+  const d = new Date(t);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
 function twilioRequestUrl(request: Request): string {
   const u = new URL(request.url);
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
@@ -71,6 +78,7 @@ export async function POST(request: Request) {
   const direction = normalizeDirection(params.Direction ?? '');
   const callStatus = (params.CallStatus ?? 'unknown').trim() || 'unknown';
   const durationSeconds = parseDuration(params.CallDuration ?? null);
+  const eventAt = parseTwilioTimestamp(params.Timestamp ?? null);
   const fromNumber = (params.From ?? '').trim() || null;
   const toNumber = (params.To ?? '').trim() || null;
   const agentUserId =
@@ -90,12 +98,24 @@ export async function POST(request: Request) {
 
   const lifecycleStatus = mapTwilioCallStatusToLifecycle(callStatus);
   const aicxDirection = mapTwilioDirection(direction);
+
+  const callEndAt =
+    lifecycleStatus === 'COMPLETED' || lifecycleStatus === 'FAILED' ? eventAt : null;
+  const callStartAt =
+    callEndAt && typeof durationSeconds === 'number'
+      ? new Date(callEndAt.getTime() - durationSeconds * 1000)
+      : lifecycleStatus === 'INITIATED'
+        ? eventAt
+        : null;
+
   const aicxRow = {
     call_provider: 'TWILIO' as const,
     provider_call_id: callSid,
     parent_provider_call_id: parentCallSid,
     direction: aicxDirection,
     call_status: lifecycleStatus,
+    call_start_at: callStartAt?.toISOString() ?? null,
+    call_end_at: callEndAt?.toISOString() ?? null,
     duration_seconds: durationSeconds,
     phone_number_from: fromNumber,
     phone_number_to: toNumber,
@@ -111,11 +131,11 @@ export async function POST(request: Request) {
       return new NextResponse('Server Error', { status: 500 });
     }
 
-    const { error: aicxErr } = await admin.from('aicx_call_session').upsert(aicxRow, {
+    const { error: aicxErr } = await admin.schema('aicx').from('call_session').upsert(aicxRow, {
       onConflict: 'call_provider,provider_call_id',
     });
     if (aicxErr) {
-      console.error('aicx_call_session upsert', aicxErr);
+      console.error('aicx.call_session upsert', aicxErr);
       return new NextResponse('Server Error', { status: 500 });
     }
   } catch (e) {

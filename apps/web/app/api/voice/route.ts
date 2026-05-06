@@ -9,6 +9,84 @@ function normalizeDialNumber(value: string): string {
   return value.trim();
 }
 
+function normalizeE164(value: string): string {
+  return value.replace(/\s+/g, '').trim();
+}
+
+function isBlockedNumber(blocked: string[], fromValue: string): boolean {
+  const from = normalizeE164(fromValue);
+  return blocked.some((b) => normalizeE164(b) === from);
+}
+
+type IvrFlow = {
+  entryNumbers: string[];
+  root: {
+    type: 'time_rule';
+    config: { name: string; schedules?: { days: string; from: string; to: string }[] };
+    branches: { id: string; label: string; nodes: Array<any> }[];
+  };
+};
+
+function isInBusinessHours(schedules: { days: string; from: string; to: string }[], now: Date): boolean {
+  // days are like "L-J", "V", "S", "D", "L", "M", "X", "J"
+  const dow = now.getDay(); // 0=Sun..6=Sat
+  const map = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const;
+  const day = map[dow] ?? 'L';
+  const hhmm = now.toISOString().slice(11, 16);
+
+  const inRange = (from: string, to: string) => hhmm >= from && hhmm <= to;
+  const includesDay = (expr: string) => {
+    const t = expr.replace(/\s+/g, '');
+    if (t.includes('-') && t.length === 3) {
+      const [a, b] = t.split('-') as [string, string];
+      const order = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      const id = order.indexOf(day);
+      if (ia === -1 || ib === -1 || id === -1) return false;
+      return ia <= id && id <= ib;
+    }
+    return t === day;
+  };
+
+  return schedules.some((s) => includesDay(s.days) && inRange(s.from, s.to));
+}
+
+function readStep(request: Request): number {
+  const url = new URL(request.url);
+  const s = url.searchParams.get('step');
+  const n = s ? Number.parseInt(s, 10) : 0;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function withStepUrl(request: Request, step: number): string {
+  const u = new URL(request.url);
+  u.searchParams.set('step', String(step));
+  return u.toString();
+}
+
+async function loadCallSettings() {
+  const supabase = createSupabaseServiceRoleClient();
+  const { data } = await supabase.from('call_settings').select('*').eq('id', 'default').maybeSingle();
+  return data;
+}
+
+async function loadIvrFlow(toNumber: string): Promise<IvrFlow | null> {
+  const supabase = createSupabaseServiceRoleClient();
+  const { data } = await supabase.from('ivr_flow').select('flow_json').eq('twilio_to_number', toNumber).maybeSingle();
+  return (data?.flow_json as IvrFlow | null) ?? null;
+}
+
+function resolveAgentTargets(target: string | undefined, agentUserIds: string[]) {
+  const ids = agentUserIds.filter(Boolean);
+  if (!target) return ids;
+  if (target === 'a1') return ids.slice(0, 1);
+  if (target === 'a2') return ids.slice(1, 2);
+  if (target === 'g1') return ids.slice(0, 4);
+  if (target === 'g2') return ids.slice(0); // cola general = todos
+  return ids.slice(0);
+}
+
 /**
  * POST /api/voice — TwiML entrante/saliente (AICONCTATC-80 + AICONCTATC-88).
  * Entrante: mapeo `inbound_routing` → uno o varios `<Client>` (base multi-ring).
@@ -25,6 +103,7 @@ export async function POST(request: Request) {
   const from = String(form.get('From') ?? '');
   const to = String(form.get('To') ?? '');
   const callerId = process.env.TWILIO_CALLER_ID;
+  const step = readStep(request);
 
   const twiml = new VoiceResponse();
 
@@ -56,8 +135,9 @@ export async function POST(request: Request) {
   }
 
   /* Entrante PSTN → WebRTC por mapeo */
-  const toNorm = normalizeDialNumber(to);
+  const toNorm = normalizeE164(normalizeDialNumber(to));
   let clientIdentities: string[] = [];
+  let agentUserIds: string[] = [];
 
   try {
     const supabase = createSupabaseServiceRoleClient();
@@ -72,14 +152,28 @@ export async function POST(request: Request) {
       return xmlResponse(twiml);
     }
 
-    const ids = (row?.agent_user_ids as string[] | null) ?? [];
-    clientIdentities = ids.map((id) => twilioClientIdentityFromUserId(id));
+    agentUserIds = ((row?.agent_user_ids as string[] | null) ?? []).map(String);
   } catch {
     twiml.say({ language: 'es-ES' }, 'Falta configuración Supabase para enrutamiento (service role y URL).');
     return xmlResponse(twiml);
   }
 
-  if (clientIdentities.length === 0) {
+  const settings = await loadCallSettings().catch(() => null);
+  if (settings && Array.isArray(settings.blocked_numbers) && isBlockedNumber(settings.blocked_numbers as string[], from)) {
+    twiml.reject();
+    return xmlResponse(twiml);
+  }
+
+  const ivr = await loadIvrFlow(toNorm).catch(() => null);
+  const schedules = ivr?.root?.config?.schedules ?? [];
+  const inHours = schedules.length ? isInBusinessHours(schedules, new Date()) : true;
+
+  const branch =
+    ivr?.root?.branches?.find((b) => (inHours ? b.label === 'En horario' : b.label === 'Fuera de horario')) ??
+    ivr?.root?.branches?.[0] ??
+    null;
+
+  if (!agentUserIds.length) {
     twiml.say(
       { language: 'es-ES' },
       'No hay agentes asignados para este número. Configura la tabla inbound_routing en Supabase.'
@@ -87,21 +181,103 @@ export async function POST(request: Request) {
     return xmlResponse(twiml);
   }
 
-  const statusCb = publicVoiceStatusCallbackUrl();
-  const dial = twiml.dial({
-    timeout: 45,
-    ...(statusCb
-      ? {
-          statusCallback: statusCb,
-          statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] as const,
-          statusCallbackMethod: 'POST' as const,
-        }
-      : {}),
-  });
-  for (const identity of clientIdentities) {
-    dial.client(identity);
+  // If no IVR published, keep legacy simultaneous ring (all).
+  if (!branch) {
+    clientIdentities = agentUserIds.map((id) => twilioClientIdentityFromUserId(id));
+    const statusCb = publicVoiceStatusCallbackUrl();
+    const dial = twiml.dial({
+      timeout: 45,
+      ...(statusCb
+        ? {
+            statusCallback: statusCb,
+            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] as const,
+            statusCallbackMethod: 'POST' as const,
+          }
+        : {}),
+    });
+    for (const identity of clientIdentities) {
+      dial.client(identity);
+    }
+    return xmlResponse(twiml);
   }
 
+  const nodes: Array<any> = Array.isArray(branch.nodes) ? branch.nodes : [];
+  const node = nodes[step] ?? null;
+  if (!node) {
+    twiml.hangup();
+    return xmlResponse(twiml);
+  }
+
+  const type = String(node.type ?? '');
+  const cfg = (node.config ?? {}) as any;
+  const statusCb = publicVoiceStatusCallbackUrl();
+
+  if (type === 'audio_message' || type === 'waiting') {
+    const text =
+      (cfg.message_text as string | undefined) ??
+      (inHours ? (settings?.business_hours_message as string | null) : (settings?.after_hours_message as string | null)) ??
+      'Gracias por llamar. Un agente le atenderá en breve.';
+    twiml.say({ language: 'es-ES' }, text);
+    twiml.redirect({ method: 'POST' }, withStepUrl(request, step + 1));
+    return xmlResponse(twiml);
+  }
+
+  if (type === 'ring_to') {
+    const targetIds = resolveAgentTargets(cfg.target, agentUserIds);
+    const identities = targetIds.map((id) => twilioClientIdentityFromUserId(id));
+    const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : 15;
+
+    const dial = twiml.dial({
+      timeout,
+      action: withStepUrl(request, step + 1),
+      method: 'POST',
+      ...(statusCb
+        ? {
+            statusCallback: statusCb,
+            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] as const,
+            statusCallbackMethod: 'POST' as const,
+          }
+        : {}),
+      ...(settings?.inbound_recording_enabled
+        ? {
+            record: 'record-from-answer' as const,
+          }
+        : {}),
+    });
+
+    for (const identity of identities) {
+      dial.client(identity);
+    }
+    return xmlResponse(twiml);
+  }
+
+  if (type === 'redirect') {
+    // Redirect-to PSTN forward (optional).
+    const forward = (cfg.forward_number as string | undefined) ?? (settings?.external_forward_number as string | null);
+    if (forward) {
+      const dial = twiml.dial({ callerId });
+      dial.number(normalizeDialNumber(forward));
+      return xmlResponse(twiml);
+    }
+    twiml.redirect({ method: 'POST' }, withStepUrl(request, step + 1));
+    return xmlResponse(twiml);
+  }
+
+  if (type === 'voicemail') {
+    const text =
+      (cfg.message_text as string | undefined) ??
+      (settings?.after_hours_message as string | null) ??
+      'Por favor, deje su mensaje después de la señal.';
+    twiml.say({ language: 'es-ES' }, text);
+    twiml.record({
+      playBeep: true,
+      maxLength: 120,
+    });
+    return xmlResponse(twiml);
+  }
+
+  // end / unknown
+  twiml.hangup();
   return xmlResponse(twiml);
 }
 
