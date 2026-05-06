@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, Plus, X, MoreVertical, Phone, Users as UsersIcon, Mail, ChevronDown, Clock, Upload, Lock, Globe, Hash, User, Bell, PhoneForwarded, Volume2, Timer, ChevronLeft } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -50,96 +50,44 @@ interface Team {
   assignedNumbers: string[];
 }
 
-const mockTeams: Team[] = [
-  {
-    id: '2',
-    name: 'Atención al Cliente',
-    description: 'Equipo de atención y soporte a clientes',
-    members: [
-      {
-        id: 'm4',
-        name: 'Laura Sánchez',
-        email: 'laura.sanchez@thinkia.com',
-        role: 'administrador',
-        availability: 'accept',
-        phone: '+34 912 345 601',
-        lastUpdated: 'Hace 5 minutos',
-      },
-      {
-        id: 'm5',
-        name: 'Javier Ruiz',
-        email: 'javier.ruiz@thinkia.com',
-        role: 'supervisor',
-        availability: 'auto',
-        phone: '+34 912 345 602',
-        lastUpdated: 'Hace 1 hora',
-      },
-      {
-        id: 'm11',
-        name: 'Pedro Ramírez',
-        email: 'pedro.ramirez@thinkia.com',
-        role: 'agente',
-        availability: 'unavailable',
-        phone: '+34 912 345 603',
-        lastUpdated: 'Hace 3 horas',
-      },
-      {
-        id: 'm12',
-        name: 'Elena Fernández',
-        email: 'elena.fernandez@thinkia.com',
-        role: 'agente',
-        availability: 'accept',
-        phone: '+34 912 345 604',
-        lastUpdated: 'Hace 30 minutos',
-      },
-    ],
-    assignedNumbers: ['+34 915 678 901', '+52 55 1238 4573'],
-  },
-  {
-    id: '1',
-    name: 'Enfermería',
-    description: 'Equipo de personal de enfermería',
-    members: [
-      {
-        id: 'm1',
-        name: 'Carmen Rodríguez',
-        email: 'carmen.rodriguez@thinkia.com',
-        role: 'administrador',
-        availability: 'accept',
-        phone: '+34 919 49 62 01',
-        lastUpdated: 'Hace 10 minutos',
-      },
-      {
-        id: 'm2',
-        name: 'Ana Martínez',
-        email: 'ana.martinez@thinkia.com',
-        role: 'supervisor',
-        availability: 'accept',
-        phone: '+34 919 49 62 02',
-        lastUpdated: 'Hace 2 horas',
-      },
-      {
-        id: 'm3',
-        name: 'Diego López',
-        email: 'diego.lopez@thinkia.com',
-        role: 'agente',
-        availability: 'auto',
-        phone: '+34 919 49 62 03',
-        lastUpdated: 'Hace 45 minutos',
-      },
-      {
-        id: 'm10',
-        name: 'Isabel Moreno',
-        email: 'isabel.moreno@thinkia.com',
-        role: 'agente',
-        availability: 'accept',
-        phone: '+34 919 49 62 04',
-        lastUpdated: 'Hace 1 día',
-      },
-    ],
-    assignedNumbers: ['+34 912 345 678', '+34 919 49 62 88'],
-  },
-];
+type DirectoryAgent = {
+  user_id: string;
+  email: string | null;
+  display_name: string;
+  portal_role: string;
+  presence_status: string;
+  team_name: string | null;
+  phone_e164: string | null;
+  updated_at: string | null;
+};
+
+function presenceToAvailability(presence: string): 'accept' | 'auto' | 'unavailable' {
+  const p = (presence || '').toLowerCase();
+  if (p === 'available') return 'accept';
+  if (p === 'appear_away' || p === 'be_right_back') return 'auto';
+  return 'unavailable';
+}
+
+function roleToUi(role: string): 'administrador' | 'supervisor' | 'agente' {
+  const r = (role || '').toLowerCase();
+  if (r === 'admin') return 'administrador';
+  if (r === 'supervisor') return 'supervisor';
+  return 'agente';
+}
+
+function timeAgoLabel(iso: string | null | undefined): string {
+  if (!iso) return 'Sin actualizar';
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return 'Sin actualizar';
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (diffSec < 60) return 'Ahora';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `Hace ${diffH} h`;
+  const diffD = Math.floor(diffH / 24);
+  return `Hace ${diffD} día${diffD === 1 ? '' : 's'}`;
+}
 
 // Extraer todos los usuarios de los equipos
 const getAllUsers = (teams: Team[]): (TeamMember & { teamName: string })[] => {
@@ -158,9 +106,11 @@ const getAllUsers = (teams: Team[]): (TeamMember & { teamName: string })[] => {
 export function Teams() {
   const { portalRole } = useAgentPresence();
   const profileReadOnly = portalRole === 'agent';
+  const isLead = isLeadPortalRole(portalRole);
 
   const [activeTab, setActiveTab] = useState<'users' | 'teams'>('users');
-  const [teams, setTeams] = useState<Team[]>(mockTeams);
+  const [directoryAgents, setDirectoryAgents] = useState<DirectoryAgent[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -176,7 +126,62 @@ export function Teams() {
   const [editingMember, setEditingMember] = useState<{ teamId: string; memberId: string } | null>(null);
   const [tempAvailability, setTempAvailability] = useState<'accept' | 'auto' | 'unavailable'>('accept');
 
-  const allUsers = getAllUsers(teams);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!isLead) {
+        setTeams([]);
+        setDirectoryAgents([]);
+        return;
+      }
+      const res = await fetch('/api/team-directory/agents', { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) return;
+      const j = (await res.json().catch(() => null)) as any;
+      const agents = (j?.agents ?? []) as DirectoryAgent[];
+      if (cancelled) return;
+      setDirectoryAgents(agents);
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLead]);
+
+  useEffect(() => {
+    if (!isLead) return;
+    const teamsMap = new Map<string, Team>();
+    for (const a of directoryAgents) {
+      const teamName = a.team_name ?? 'Sin equipo';
+      if (!teamsMap.has(teamName)) {
+        teamsMap.set(teamName, {
+          id: teamName,
+          name: teamName,
+          description: `Equipo ${teamName}`,
+          members: [],
+          assignedNumbers: [],
+        });
+      }
+      const t = teamsMap.get(teamName)!;
+      t.members.push({
+        id: a.user_id,
+        name: a.display_name,
+        email: a.email ?? '',
+        role: roleToUi(a.portal_role),
+        availability: presenceToAvailability(a.presence_status),
+        phone: a.phone_e164 ?? undefined,
+        team: teamName,
+        lastUpdated: timeAgoLabel(a.updated_at),
+      });
+    }
+    const next = Array.from(teamsMap.values()).sort((x, y) => x.name.localeCompare(y.name));
+    setTeams(next);
+    if (selectedTeam) {
+      const updated = next.find((t) => t.id === selectedTeam.id) ?? null;
+      setSelectedTeam(updated);
+    }
+  }, [directoryAgents, isLead]);
+
+  const allUsers = useMemo(() => getAllUsers(teams), [teams]);
 
   const filteredTeams = teams.filter((team) =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -261,22 +266,24 @@ export function Teams() {
   };
 
   const handleChangeAvailability = (teamId: string, memberId: string, newAvailability: 'accept' | 'auto' | 'unavailable') => {
-    const updatedTeams = teams.map((team) => {
-      if (team.id === teamId) {
-        return {
-          ...team,
-          members: team.members.map((m) =>
-            m.id === memberId ? { ...m, availability: newAvailability, lastUpdated: 'Ahora' } : m
-          ),
-        };
+    // Persistir en BD (solo lead). UI se actualiza por re-fetch.
+    if (!isLead) return;
+    const presence =
+      newAvailability === 'accept' ? 'available' : newAvailability === 'auto' ? 'appear_away' : 'unavailable';
+    void (async () => {
+      await fetch('/api/team-directory/agents/presence', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: memberId, presence }),
+      });
+      // refrescar
+      const res = await fetch('/api/team-directory/agents', { credentials: 'include', cache: 'no-store' });
+      if (res.ok) {
+        const j = (await res.json().catch(() => null)) as any;
+        setDirectoryAgents((j?.agents ?? []) as DirectoryAgent[]);
       }
-      return team;
-    });
-    setTeams(updatedTeams);
-    if (selectedTeam && selectedTeam.id === teamId) {
-      const updatedTeam = updatedTeams.find((t) => t.id === teamId);
-      if (updatedTeam) setSelectedTeam(updatedTeam);
-    }
+    })();
     setEditingMember(null);
   };
 
