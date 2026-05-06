@@ -37,6 +37,7 @@ interface TeamMember {
   email: string;
   role: 'administrador' | 'supervisor' | 'agente';
   availability: 'accept' | 'auto' | 'unavailable';
+  presenceDb?: string;
   phone?: string;
   team?: string;
   lastUpdated?: string;
@@ -61,11 +62,23 @@ type DirectoryAgent = {
   updated_at: string | null;
 };
 
+type AgentsMe = { userId?: string; presence?: string };
+
 function presenceToAvailability(presence: string): 'accept' | 'auto' | 'unavailable' {
   const p = (presence || '').toLowerCase();
   if (p === 'available') return 'accept';
   if (p === 'appear_away' || p === 'be_right_back') return 'auto';
   return 'unavailable';
+}
+
+function presenceLabelEs(presence: string): { dot: 'green' | 'blue' | 'red' | 'yellow' | 'gray'; text: string } {
+  const p = (presence || '').toLowerCase();
+  if (p === 'available') return { dot: 'green', text: 'Disponible' };
+  if (p === 'be_right_back') return { dot: 'blue', text: 'Vuelvo enseguida' };
+  if (p === 'appear_away') return { dot: 'yellow', text: 'Aparecer como ausente' };
+  if (p === 'do_not_disturb') return { dot: 'red', text: 'No molestar' };
+  if (p === 'unavailable') return { dot: 'gray', text: 'No disponible' };
+  return { dot: 'gray', text: 'No disponible' };
 }
 
 function roleToUi(role: string): 'administrador' | 'supervisor' | 'agente' {
@@ -104,7 +117,7 @@ const getAllUsers = (teams: Team[]): (TeamMember & { teamName: string })[] => {
 };
 
 export function Teams() {
-  const { portalRole } = useAgentPresence();
+  const { portalRole, presence } = useAgentPresence();
   const profileReadOnly = portalRole === 'agent';
   const isLead = isLeadPortalRole(portalRole);
 
@@ -113,6 +126,7 @@ export function Teams() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [me, setMe] = useState<AgentsMe | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
@@ -126,6 +140,23 @@ export function Teams() {
   const [newMemberRole, setNewMemberRole] = useState<'administrador' | 'supervisor' | 'agente'>('agente');
   const [editingMember, setEditingMember] = useState<{ teamId: string; memberId: string } | null>(null);
   const [tempAvailability, setTempAvailability] = useState<'accept' | 'auto' | 'unavailable'>('accept');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/agents/me', { credentials: 'include', cache: 'no-store' });
+        const j = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        if (!cancelled) setMe({ userId: j?.userId, presence: j?.presence });
+      } catch {
+        /* noop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,8 +179,14 @@ export function Teams() {
       setDirectoryAgents(agents);
     }
     void load();
+    const t = isLead
+      ? window.setInterval(() => {
+          void load();
+        }, 2000)
+      : null;
     return () => {
       cancelled = true;
+      if (t) window.clearInterval(t);
     };
   }, [isLead]);
 
@@ -168,12 +205,18 @@ export function Teams() {
         });
       }
       const t = teamsMap.get(teamName)!;
+      const effectivePresence =
+        me?.userId && a.user_id === me.userId
+          ? // El estado del propio usuario viene del contexto/endpoint /api/agents/me (selector abajo izq).
+            (presence || a.presence_status)
+          : a.presence_status;
       t.members.push({
         id: a.user_id,
         name: a.display_name,
         email: a.email ?? '',
         role: roleToUi(a.portal_role),
-        availability: presenceToAvailability(a.presence_status),
+        availability: presenceToAvailability(effectivePresence),
+        presenceDb: effectivePresence,
         phone: a.phone_e164 ?? undefined,
         team: teamName,
         lastUpdated: timeAgoLabel(a.updated_at),
@@ -293,32 +336,34 @@ export function Teams() {
     setEditingMember(null);
   };
 
-  const getAvailabilityBadge = (availability: string) => {
-    switch (availability) {
-      case 'accept':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-            <span className="text-sm font-medium text-green-700">Disponible</span>
-          </div>
-        );
-      case 'auto':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <span className="text-sm font-medium text-blue-700">Automático</span>
-          </div>
-        );
-      case 'unavailable':
-        return (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-red-500" />
-            <span className="text-sm font-medium text-red-700">No disponible</span>
-          </div>
-        );
-      default:
-        return <Badge>{availability}</Badge>;
-    }
+  const getAvailabilityBadge = (presenceDbOrAvailability: string) => {
+    const { dot, text } = presenceLabelEs(presenceDbOrAvailability);
+    const dotClass =
+      dot === 'green'
+        ? 'bg-green-500'
+        : dot === 'blue'
+          ? 'bg-blue-500'
+          : dot === 'red'
+            ? 'bg-red-500'
+            : dot === 'yellow'
+              ? 'bg-yellow-500'
+              : 'bg-gray-400';
+    const textClass =
+      dot === 'green'
+        ? 'text-green-700'
+        : dot === 'blue'
+          ? 'text-blue-700'
+          : dot === 'red'
+            ? 'text-red-700'
+            : dot === 'yellow'
+              ? 'text-yellow-800'
+              : 'text-gray-700';
+    return (
+      <div className="flex items-center gap-2">
+        <div className={`h-2 w-2 rounded-full ${dotClass}`} />
+        <span className={`text-sm font-medium ${textClass}`}>{text}</span>
+      </div>
+    );
   };
 
   const getRoleBadge = (role: string) => {
@@ -561,7 +606,7 @@ export function Teams() {
                         {getRoleBadge(user.role)}
                       </td>
                       <td className="py-4 px-6">
-                        {getAvailabilityBadge(user.availability)}
+                        {getAvailabilityBadge(user.presenceDb ?? user.availability)}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -938,7 +983,7 @@ export function Teams() {
                                   </DialogContent>
                                 </Dialog>
                               ) : null}
-                              {getAvailabilityBadge(member.availability)}
+                              {getAvailabilityBadge(member.presenceDb ?? member.availability)}
                             </td>
                             <td className="py-4 px-6">
                               <DropdownMenu>
