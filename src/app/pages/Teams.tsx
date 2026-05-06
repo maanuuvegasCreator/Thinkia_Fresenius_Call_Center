@@ -112,6 +112,7 @@ export function Teams() {
   const [directoryAgents, setDirectoryAgents] = useState<DirectoryAgent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
@@ -132,13 +133,18 @@ export function Teams() {
       if (!isLead) {
         setTeams([]);
         setDirectoryAgents([]);
+        setDirectoryError(null);
         return;
       }
       const res = await fetch('/api/team-directory/agents', { credentials: 'include', cache: 'no-store' });
-      if (!res.ok) return;
       const j = (await res.json().catch(() => null)) as any;
+      if (!res.ok) {
+        if (!cancelled) setDirectoryError(j?.error ?? `HTTP ${res.status}`);
+        return;
+      }
       const agents = (j?.agents ?? []) as DirectoryAgent[];
       if (cancelled) return;
+      setDirectoryError(null);
       setDirectoryAgents(agents);
     }
     void load();
@@ -503,6 +509,11 @@ export function Teams() {
 
           <div className="flex-1 overflow-y-auto bg-gray-50">
             <div className="bg-white">
+              {directoryError ? (
+                <div className="border-b bg-red-50 px-6 py-3 text-sm text-red-800">
+                  Error cargando usuarios: {directoryError}
+                </div>
+              ) : null}
               <table className="w-full">
                 <thead className="border-b bg-gray-50 sticky top-0">
                   <tr>

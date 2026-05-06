@@ -46,10 +46,8 @@ export async function GET() {
   }
 
   const admin = createSupabaseServiceRoleClient();
-  const { data: rows, error } = await admin
-    .from('agents')
-    .select('user_id,display_name,portal_role,presence_status,team_name,phone_e164,updated_at')
-    .order('display_name', { ascending: true });
+  // Use '*' to be forward/backward compatible (avoid failing if some columns are missing in a partially migrated DB).
+  const { data: rows, error } = await admin.from('agents').select('*').order('display_name', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const userIds = (rows ?? []).map((r: any) => r.user_id).filter(Boolean);
