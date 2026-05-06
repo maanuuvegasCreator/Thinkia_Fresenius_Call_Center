@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SettingsLayout } from '../../components/SettingsLayout';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
 import { Clock, PhoneForwarded, Mic, Eye, PhoneOff, Plus, MoreVertical, X, PhoneCall, ChevronDown, ChevronUp } from 'lucide-react';
 import IVRFlowBuilder from '../../components/IVRFlowBuilder';
-import { useEffect } from 'react';
 
 interface ScheduleConfig {
   enabled: boolean;
@@ -40,6 +39,8 @@ export function CallSettings() {
   const [isAddBlockedNumberOpen, setIsAddBlockedNumberOpen] = useState(false);
   const [newBlockedNumber, setNewBlockedNumber] = useState('');
   const [isIVRBuilderOpen, setIsIVRBuilderOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
   // Settings from Centro de llamadas / Ajustes
   const [autoRecordingEnabled, setAutoRecordingEnabled] = useState(true);
@@ -65,14 +66,57 @@ export function CallSettings() {
     domingo: { enabled: false, startTime: '08:00', endTime: '17:00' },
   });
 
+  const normalizedDraft = useMemo(() => {
+    return {
+      wrap_up_seconds: Number(wrapUpTime ?? 30),
+      auto_close_conversation: autoClose,
+      auto_end_wrap_up: autoEndWrapUp,
+      always_on_top: alwaysOnTop,
+      external_forward_number: externalNumber || null,
+      blocked_numbers: blockedNumbers.map((b) => b.number).filter(Boolean),
+      inbound_recording_enabled: autoRecordingEnabled,
+      inbound_pause_recording_enabled: pauseRecordingEnabled,
+      outbound_recording_enabled: outboundRecordingEnabled,
+      hold_message_enabled: holdMessageEnabled,
+      hold_message_delay_seconds: Number(holdMessageDelay ?? 30),
+      business_hours_message: businessHoursMessage,
+      after_hours_message: afterHoursMessage,
+      outbound_recording_message: outboundRecordingMessage,
+      hold_message: holdMessage,
+    };
+  }, [
+    afterHoursMessage,
+    alwaysOnTop,
+    autoClose,
+    autoEndWrapUp,
+    autoRecordingEnabled,
+    blockedNumbers,
+    businessHoursMessage,
+    externalNumber,
+    holdMessage,
+    holdMessageDelay,
+    holdMessageEnabled,
+    outboundRecordingEnabled,
+    outboundRecordingMessage,
+    pauseRecordingEnabled,
+    wrapUpTime,
+  ]);
+
+  async function fetchServerSettings() {
+    const res = await fetch('/api/settings/call', { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => null)) as any;
+      throw new Error(j?.error ?? `No se pudo leer la configuración (HTTP ${res.status})`);
+    }
+    const j = (await res.json().catch(() => null)) as any;
+    return j?.settings as any;
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/settings/call', { credentials: 'include', cache: 'no-store' });
-        if (!res.ok) return;
-        const j = (await res.json().catch(() => null)) as any;
-        const s = j?.settings;
+        const s = await fetchServerSettings();
         if (!s || cancelled) return;
         setWrapUpTime(String(s.wrap_up_seconds ?? '30'));
         setAutoClose(Boolean(s.auto_close_conversation ?? false));
@@ -103,25 +147,7 @@ export function CallSettings() {
   }, []);
 
   async function saveSettings() {
-    const payload = {
-      settings: {
-        wrap_up_seconds: Number(wrapUpTime ?? 30),
-        auto_close_conversation: autoClose,
-        auto_end_wrap_up: autoEndWrapUp,
-        always_on_top: alwaysOnTop,
-        external_forward_number: externalNumber || null,
-        blocked_numbers: blockedNumbers.map((b) => b.number).filter(Boolean),
-        inbound_recording_enabled: autoRecordingEnabled,
-        inbound_pause_recording_enabled: pauseRecordingEnabled,
-        outbound_recording_enabled: outboundRecordingEnabled,
-        hold_message_enabled: holdMessageEnabled,
-        hold_message_delay_seconds: Number(holdMessageDelay ?? 30),
-        business_hours_message: businessHoursMessage,
-        after_hours_message: afterHoursMessage,
-        outbound_recording_message: outboundRecordingMessage,
-        hold_message: holdMessage,
-      },
-    };
+    const payload = { settings: normalizedDraft };
     const res = await fetch('/api/settings/call', {
       method: 'PUT',
       credentials: 'include',
@@ -131,6 +157,38 @@ export function CallSettings() {
     if (!res.ok) {
       const j = (await res.json().catch(() => null)) as any;
       throw new Error(j?.error ?? `Error guardando (HTTP ${res.status})`);
+    }
+
+    // Verificación: re-leer desde servidor y comparar valores normalizados
+    const server = await fetchServerSettings();
+    const normalizedServer = {
+      wrap_up_seconds: Number(server?.wrap_up_seconds ?? 30),
+      auto_close_conversation: Boolean(server?.auto_close_conversation ?? false),
+      auto_end_wrap_up: Boolean(server?.auto_end_wrap_up ?? false),
+      always_on_top: Boolean(server?.always_on_top ?? false),
+      external_forward_number: (server?.external_forward_number ?? null) as string | null,
+      blocked_numbers: Array.isArray(server?.blocked_numbers) ? (server.blocked_numbers as string[]).filter(Boolean) : [],
+      inbound_recording_enabled: Boolean(server?.inbound_recording_enabled ?? true),
+      inbound_pause_recording_enabled: Boolean(server?.inbound_pause_recording_enabled ?? true),
+      outbound_recording_enabled: Boolean(server?.outbound_recording_enabled ?? true),
+      hold_message_enabled: Boolean(server?.hold_message_enabled ?? true),
+      hold_message_delay_seconds: Number(server?.hold_message_delay_seconds ?? 30),
+      business_hours_message: (server?.business_hours_message ?? '') as string,
+      after_hours_message: (server?.after_hours_message ?? '') as string,
+      outbound_recording_message: (server?.outbound_recording_message ?? '') as string,
+      hold_message: (server?.hold_message ?? '') as string,
+    };
+
+    const normalizedDraftComparable = {
+      ...normalizedDraft,
+      business_hours_message: normalizedDraft.business_hours_message ?? '',
+      after_hours_message: normalizedDraft.after_hours_message ?? '',
+      outbound_recording_message: normalizedDraft.outbound_recording_message ?? '',
+      hold_message: normalizedDraft.hold_message ?? '',
+    };
+
+    if (JSON.stringify(normalizedDraftComparable) !== JSON.stringify(normalizedServer)) {
+      throw new Error('Guardado incompleto: el servidor devolvió valores distintos a los enviados.');
     }
   }
 
@@ -643,21 +701,40 @@ export function CallSettings() {
 
         {/* Footer */}
         <div className="border-t px-8 py-4 bg-gray-50 flex justify-end gap-3">
+          {saveNotice ? (
+            <div
+              className={
+                saveNotice.kind === 'ok'
+                  ? 'mr-auto text-sm text-emerald-700'
+                  : 'mr-auto text-sm text-red-700'
+              }
+            >
+              {saveNotice.text}
+            </div>
+          ) : (
+            <div className="mr-auto" />
+          )}
           <Button variant="outline">
             Cancelar
           </Button>
           <Button
             className="text-white"
             style={{ backgroundColor: '#03091D' }}
+            disabled={isSaving}
             onClick={async () => {
+              setSaveNotice(null);
+              setIsSaving(true);
               try {
                 await saveSettings();
+                setSaveNotice({ kind: 'ok', text: 'Cambios guardados correctamente (verificado).' });
               } catch (e) {
-                console.error(e);
+                const msg = e instanceof Error ? e.message : 'Error guardando cambios.';
+                setSaveNotice({ kind: 'error', text: msg });
               }
+              setIsSaving(false);
             }}
           >
-            Guardar cambios
+            {isSaving ? 'Guardando…' : 'Guardar cambios'}
           </Button>
         </div>
       </div>
