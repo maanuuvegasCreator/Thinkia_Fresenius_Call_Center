@@ -5,6 +5,7 @@
  *   node scripts/simulate-client-ring-cli.mjs
  *   node scripts/simulate-client-ring-cli.mjs <uuid-supabase>
  *   node scripts/simulate-client-ring-cli.mjs correo@dominio.com
+ *   node scripts/simulate-client-ring-cli.mjs davidalejano   (busca por email o nombre)
  *
  * No imprime secretos; solo identity y CallSid.
  */
@@ -78,8 +79,32 @@ if (arg) {
   } else if (/^[0-9a-f-]{36}$/i.test(arg)) {
     userId = arg;
   } else {
-    console.error('Argumento no reconocido (usa UUID o email).');
-    process.exit(1);
+    const supabase = createClient(url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const needle = arg.toLowerCase();
+    let page = 1;
+    const perPage = 200;
+    while (!userId && page < 30) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        console.error('Supabase listUsers:', error.message);
+        process.exit(1);
+      }
+      const u = data.users.find((x) => {
+        const em = (x.email ?? '').toLowerCase();
+        const meta = x.user_metadata ?? {};
+        const name = String(meta.full_name ?? meta.name ?? meta.preferred_username ?? '').toLowerCase();
+        return em.includes(needle) || name.includes(needle);
+      });
+      if (u) userId = u.id;
+      if (!data.users.length || data.users.length < perPage) break;
+      page += 1;
+    }
+    if (!userId) {
+      console.error(`Ningún usuario coincide con: ${arg} (prueba email completo o UUID).`);
+      process.exit(1);
+    }
   }
 } else {
   const supabase = createClient(url, serviceKey, {
