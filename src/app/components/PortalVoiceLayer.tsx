@@ -207,10 +207,6 @@ export function PortalVoiceLayer() {
           <span className="font-medium">Voz: </span>
           {voiceBanner}
         </div>
-      ) : registered && acceptsIncomingCalls ? (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow">
-          Twilio conectado · listo para entrantes
-        </div>
       ) : null}
 
       <Dialog
