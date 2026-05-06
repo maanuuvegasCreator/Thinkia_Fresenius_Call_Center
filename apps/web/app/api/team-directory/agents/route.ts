@@ -35,45 +35,58 @@ async function requireLeadOrSelfDirectoryAccess() {
 }
 
 export async function GET() {
-  const auth = await requireLeadOrSelfDirectoryAccess();
-  if ('error' in auth) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
-  }
-
-  const isLead = auth.role === 'admin' || auth.role === 'supervisor';
-  if (!isLead) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const admin = createSupabaseServiceRoleClient();
-  // Use '*' to be forward/backward compatible (avoid failing if some columns are missing in a partially migrated DB).
-  const { data: rows, error } = await admin.from('agents').select('*').order('display_name', { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const userIds = (rows ?? []).map((r: any) => r.user_id).filter(Boolean);
-
-  // Join email from auth.users (service role only)
-  const emailsById = new Map<string, string | null>();
-  for (const id of userIds) {
-    try {
-      const { data } = await admin.auth.admin.getUserById(id);
-      emailsById.set(id, data?.user?.email ?? null);
-    } catch {
-      emailsById.set(id, null);
+  try {
+    const auth = await requireLeadOrSelfDirectoryAccess();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
+
+    const isLead = auth.role === 'admin' || auth.role === 'supervisor';
+    if (!isLead) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const admin = createSupabaseServiceRoleClient();
+    // Use '*' to be forward/backward compatible (avoid failing if some columns are missing in a partially migrated DB).
+    const { data: rows, error } = await admin
+      .from('agents')
+      .select('*')
+      .order('display_name', { ascending: true });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const userIds = (rows ?? []).map((r: any) => r.user_id).filter(Boolean);
+
+    // Join email from auth.users (service role only)
+    const emailsById = new Map<string, string | null>();
+    for (const id of userIds) {
+      try {
+        const { data } = await admin.auth.admin.getUserById(id);
+        emailsById.set(id, data?.user?.email ?? null);
+      } catch {
+        emailsById.set(id, null);
+      }
+    }
+
+    const agents: DirectoryAgent[] = (rows ?? []).map((r: any) => ({
+      user_id: String(r.user_id),
+      email: emailsById.get(String(r.user_id)) ?? null,
+      display_name: String(r.display_name ?? ''),
+      portal_role: String(r.portal_role ?? 'agent'),
+      presence_status: String(r.presence_status ?? 'unavailable'),
+      team_name: (r.team_name ?? null) as string | null,
+      phone_e164: (r.phone_e164 ?? null) as string | null,
+      updated_at: (r.updated_at ?? null) as string | null,
+    }));
+
+    return NextResponse.json({ agents }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Internal error';
+    // Common cause in Vercel: missing SUPABASE_SERVICE_ROLE_KEY in the Next project env.
+    const hint =
+      msg.includes('SUPABASE_SERVICE_ROLE_KEY') || msg.includes('Faltan en el servidor Next')
+        ? 'Revisa variables en Vercel (proyecto Next): SUPABASE_SERVICE_ROLE_KEY y NEXT_PUBLIC_SUPABASE_URL.'
+        : null;
+    return NextResponse.json({ error: msg, hint }, { status: 500 });
   }
-
-  const agents: DirectoryAgent[] = (rows ?? []).map((r: any) => ({
-    user_id: String(r.user_id),
-    email: emailsById.get(String(r.user_id)) ?? null,
-    display_name: String(r.display_name ?? ''),
-    portal_role: String(r.portal_role ?? 'agent'),
-    presence_status: String(r.presence_status ?? 'unavailable'),
-    team_name: (r.team_name ?? null) as string | null,
-    phone_e164: (r.phone_e164 ?? null) as string | null,
-    updated_at: (r.updated_at ?? null) as string | null,
-  }));
-
-  return NextResponse.json({ agents }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
