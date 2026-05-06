@@ -77,6 +77,23 @@ async function loadIvrFlow(toNumber: string): Promise<IvrFlow | null> {
   return (data?.flow_json as IvrFlow | null) ?? null;
 }
 
+async function filterAvailableAgents(agentUserIds: string[]): Promise<string[]> {
+  const ids = agentUserIds.filter(Boolean);
+  if (!ids.length) return [];
+  const supabase = createSupabaseServiceRoleClient();
+  const { data, error } = await supabase
+    .from('agents')
+    .select('user_id,presence_status')
+    .in('user_id', ids);
+  if (error) return [];
+  const available = new Set(
+    (data ?? [])
+      .filter((r: any) => String(r.presence_status ?? '').toLowerCase() === 'available')
+      .map((r: any) => String(r.user_id))
+  );
+  return ids.filter((id) => available.has(id));
+}
+
 function resolveAgentTargets(target: string | undefined, agentUserIds: string[]) {
   const ids = agentUserIds.filter(Boolean);
   if (!target) return ids;
@@ -181,9 +198,24 @@ export async function POST(request: Request) {
     return xmlResponse(twiml);
   }
 
+  // Global availability filter: Twilio only rings available agents.
+  const availableAgentUserIds = await filterAvailableAgents(agentUserIds).catch(() => []);
+
   // If no IVR published, keep legacy simultaneous ring (all).
   if (!branch) {
-    clientIdentities = agentUserIds.map((id) => twilioClientIdentityFromUserId(id));
+    if (!availableAgentUserIds.length) {
+      const forward = settings?.external_forward_number as string | null;
+      if (forward) {
+        const dial = twiml.dial({ callerId });
+        dial.number(normalizeDialNumber(forward));
+        return xmlResponse(twiml);
+      }
+      twiml.say({ language: 'es-ES' }, 'En este momento no hay agentes disponibles. Por favor, inténtelo más tarde.');
+      twiml.hangup();
+      return xmlResponse(twiml);
+    }
+
+    clientIdentities = availableAgentUserIds.map((id) => twilioClientIdentityFromUserId(id));
     const statusCb = publicVoiceStatusCallbackUrl();
     const dial = twiml.dial({
       timeout: 45,
@@ -223,7 +255,12 @@ export async function POST(request: Request) {
   }
 
   if (type === 'ring_to') {
-    const targetIds = resolveAgentTargets(cfg.target, agentUserIds);
+    const targetIds = resolveAgentTargets(cfg.target, availableAgentUserIds);
+    if (!targetIds.length) {
+      // Nobody available for this step → proceed to next node (queue/voicemail/redirect).
+      twiml.redirect({ method: 'POST' }, withStepUrl(request, step + 1));
+      return xmlResponse(twiml);
+    }
     const identities = targetIds.map((id) => twilioClientIdentityFromUserId(id));
     const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : 15;
 
