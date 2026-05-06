@@ -226,6 +226,11 @@ export async function POST(request: Request) {
             statusCallbackMethod: 'POST' as const,
           }
         : {}),
+      ...(settings?.inbound_recording_enabled
+        ? {
+            record: 'record-from-answer' as const,
+          }
+        : {}),
     });
     for (const identity of clientIdentities) {
       dial.client(identity);

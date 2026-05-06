@@ -9,3 +9,13 @@
 -- )
 -- on conflict (twilio_to_number) do update
 -- set agent_user_ids = excluded.agent_user_ids;
+
+-- Un número (ej. US) y TODOS los agentes con filas en public.agents:
+-- insert into public.inbound_routing (twilio_to_number, agent_user_ids)
+-- select
+--   '+15073352716',
+--   coalesce(array_agg(user_id order by display_name), '{}')
+-- from public.agents
+-- where user_id is not null
+-- on conflict (twilio_to_number) do update
+-- set agent_user_ids = excluded.agent_user_ids;
