@@ -65,20 +65,29 @@ type DirectoryAgent = {
 type AgentsMe = { userId?: string; presence?: string };
 
 function presenceToAvailability(presence: string): 'accept' | 'auto' | 'unavailable' {
-  const p = (presence || '').toLowerCase();
+  const p = normalizePresenceToken(presence);
   if (p === 'available') return 'accept';
   if (p === 'appear_away' || p === 'be_right_back') return 'auto';
   return 'unavailable';
 }
 
 function presenceLabelEs(presence: string): { dot: 'green' | 'blue' | 'red' | 'yellow' | 'gray'; text: string } {
-  const p = (presence || '').toLowerCase();
+  const p = normalizePresenceToken(presence);
   if (p === 'available') return { dot: 'green', text: 'Disponible' };
   if (p === 'be_right_back') return { dot: 'blue', text: 'Vuelvo enseguida' };
   if (p === 'appear_away') return { dot: 'yellow', text: 'Aparecer como ausente' };
   if (p === 'do_not_disturb') return { dot: 'red', text: 'No molestar' };
   if (p === 'unavailable') return { dot: 'gray', text: 'No disponible' };
   return { dot: 'gray', text: 'No disponible' };
+}
+
+function normalizePresenceToken(raw: string): string {
+  const p = (raw || '').toLowerCase().trim();
+  // Accept both UI (kebab-case) and DB (snake_case)
+  if (p === 'do-not-disturb') return 'do_not_disturb';
+  if (p === 'be-right-back') return 'be_right_back';
+  if (p === 'appear-away') return 'appear_away';
+  return p;
 }
 
 function roleToUi(role: string): 'administrador' | 'supervisor' | 'agente' {
@@ -216,7 +225,7 @@ export function Teams() {
         email: a.email ?? '',
         role: roleToUi(a.portal_role),
         availability: presenceToAvailability(effectivePresence),
-        presenceDb: effectivePresence,
+        presenceDb: normalizePresenceToken(effectivePresence),
         phone: a.phone_e164 ?? undefined,
         team: teamName,
         lastUpdated: timeAgoLabel(a.updated_at),
