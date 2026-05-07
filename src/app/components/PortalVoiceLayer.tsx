@@ -96,6 +96,7 @@ export function PortalVoiceLayer() {
   useEffect(() => {
     let disposed = false;
     let detachVoiceRefresh: (() => void) | null = null;
+    let detachAudioPrefListener: (() => void) | null = null;
 
     async function connect() {
       setVoiceBanner(null);
@@ -114,7 +115,33 @@ export function PortalVoiceLayer() {
           getUserMedia,
         });
         deviceRef.current = device;
-        void applyAudioOutputDeviceToPage(getPrefsRef.current().outputDeviceId);
+
+        const applyOutput = async () => {
+          const prefs = getPrefsRef.current();
+          const outId = prefs.outputDeviceId;
+          // Prefer Twilio's OutputDeviceCollection routing (more reliable than DOM scanning).
+          try {
+            if (device.audio?.isOutputSelectionSupported && outId) {
+              await device.audio.speakerDevices.set(outId);
+              await device.audio.ringtoneDevices.set(outId);
+            }
+          } catch {
+            // fallback best-effort
+          }
+          await applyAudioOutputDeviceToPage(outId);
+        };
+
+        void applyOutput();
+
+        const onPrefs = () => {
+          void applyOutput();
+        };
+        window.addEventListener('thinkia-audio-devices-changed', onPrefs);
+        window.addEventListener('devicechange', onPrefs);
+        detachAudioPrefListener = () => {
+          window.removeEventListener('thinkia-audio-devices-changed', onPrefs);
+          window.removeEventListener('devicechange', onPrefs);
+        };
 
         const voiceRefresh = createTwilioVoiceRefreshController(device, {
           isActive: () => !disposed,
@@ -169,6 +196,8 @@ export function PortalVoiceLayer() {
 
     return () => {
       disposed = true;
+      detachAudioPrefListener?.();
+      detachAudioPrefListener = null;
       detachVoiceRefresh?.();
       detachVoiceRefresh = null;
       deviceRef.current?.destroy();

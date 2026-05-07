@@ -129,6 +129,7 @@ export function AudioDevices() {
                     const next = v === '__default__' ? null : v;
                     setAudioInputDeviceId(next);
                     setPrefs(getAudioDevicePrefs());
+                    window.dispatchEvent(new Event('thinkia-audio-devices-changed'));
                   }}
                 >
                   <SelectTrigger>
@@ -170,6 +171,7 @@ export function AudioDevices() {
                     setAudioOutputDeviceId(next);
                     setPrefs(getAudioDevicePrefs());
                     void applyAudioOutputDeviceToPage(next);
+                    window.dispatchEvent(new Event('thinkia-audio-devices-changed'));
                   }}
                   disabled={!outputSupported}
                 >
