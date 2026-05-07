@@ -1,4 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -40,6 +42,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { err: Error 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [fontsLoaded, fontError] = useFonts(Ionicons.font);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -61,6 +64,28 @@ export default function App() {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  if (fontError) {
+    return (
+      <View style={styles.errorWrap}>
+        <Text style={styles.errorTitle}>Error de fuentes</Text>
+        <Text style={styles.errorHint} selectable>
+          {fontError.message}
+        </Text>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.suspense}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.suspenseText}>Cargando…</Text>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
 
   if (bootError) {
     return (

@@ -2,6 +2,11 @@
 
 import { Call, Device } from '@twilio/voice-sdk';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
+  createTwilioVoiceRefreshController,
+  fetchTwilioVoiceTokenWithRetry,
+} from '@repo-src/lib/twilioVoiceDeviceHelpers';
 
 type MicState = 'idle' | 'checking' | 'granted' | 'denied' | 'blocked' | 'no-device';
 
@@ -69,6 +74,7 @@ function micErrorMessage(err: unknown): string {
  */
 export function TwilioSoftphone() {
   const deviceRef = useRef<Device | null>(null);
+  const voiceDetachRef = useRef<(() => void) | null>(null);
   const [micState, setMicState] = useState<MicState>('idle');
   const [micDetail, setMicDetail] = useState<string | null>(null);
 
@@ -125,25 +131,26 @@ export function TwilioSoftphone() {
     setDeviceState('loading-token');
     setDeviceDetail(null);
     try {
-      const res = await fetch('/api/token', { cache: 'no-store', credentials: 'include' });
-      if (!res.ok) {
-        const errText = await res.text();
-        let msg = `Token HTTP ${res.status}`;
-        try {
-          const j = JSON.parse(errText) as { error?: string };
-          if (j.error) msg = j.error;
-        } catch {
-          if (errText) msg = errText;
-        }
-        throw new Error(msg);
-      }
-      const jwt = await res.text();
+      const jwt = await fetchTwilioVoiceTokenWithRetry();
+      voiceDetachRef.current?.();
+      voiceDetachRef.current = null;
       deviceRef.current?.destroy();
       const device = new Device(jwt, {
         logLevel: 0,
         closeProtection: true,
+        tokenRefreshMs: TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
       });
       deviceRef.current = device;
+
+      const voiceRefresh = createTwilioVoiceRefreshController(device, {
+        isActive: () => deviceRef.current === device,
+        onRefreshFailed: (e: unknown) => {
+          setDeviceState('error');
+          setDeviceDetail(e instanceof Error ? e.message : 'No se pudo renovar el token de voz');
+        },
+        onRefreshed: () => setDeviceDetail(null),
+      });
+      voiceDetachRef.current = voiceRefresh.detach;
 
       device.on('registered', () => {
         setDeviceState('registered');
@@ -153,6 +160,7 @@ export function TwilioSoftphone() {
         setDeviceDetail(null);
       });
       device.on('error', (err) => {
+        if (voiceRefresh.handleExpiredDeviceError(err)) return;
         setDeviceState('error');
         setDeviceDetail(err.message ?? 'Error en el dispositivo Twilio');
       });
@@ -174,6 +182,8 @@ export function TwilioSoftphone() {
 
   useEffect(() => {
     return () => {
+      voiceDetachRef.current?.();
+      voiceDetachRef.current = null;
       deviceRef.current?.destroy();
       deviceRef.current = null;
     };

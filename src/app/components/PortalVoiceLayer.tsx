@@ -5,6 +5,11 @@ import { Building2, Clock, FileText, Phone, PhoneIncoming, Shield, UserRound } f
 import { useAgentPresence } from '../context/AgentPresenceContext';
 import { resolveDynamicsCallerProfile } from '@/lib/dynamicsCallerEnrichment';
 import {
+  TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
+  createTwilioVoiceRefreshController,
+  fetchTwilioVoiceTokenWithRetry,
+} from '@/lib/twilioVoiceDeviceHelpers';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,23 +18,6 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Button } from './ui/button';
-
-/** Misma cookie de sesión que Next; en prod `/portal` y `/api` comparten origen. */
-async function fetchVoiceToken(): Promise<string> {
-  const res = await fetch('/api/token', { cache: 'no-store', credentials: 'include' });
-  const text = await res.text();
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const j = JSON.parse(text) as { error?: string };
-      if (j.error) msg = j.error;
-    } catch {
-      if (text) msg = text;
-    }
-    throw new Error(msg);
-  }
-  return text;
-}
 
 function formatCallerId(params: Record<string, string> | undefined): {
   from: string;
@@ -101,16 +89,36 @@ export function PortalVoiceLayer() {
 
   useEffect(() => {
     let disposed = false;
+    let detachVoiceRefresh: (() => void) | null = null;
 
     async function connect() {
       setVoiceBanner(null);
       try {
-        const jwt = await fetchVoiceToken();
+        const jwt = await fetchTwilioVoiceTokenWithRetry();
         if (disposed) return;
 
+        detachVoiceRefresh?.();
+        detachVoiceRefresh = null;
         deviceRef.current?.destroy();
-        const device = new Device(jwt, { logLevel: 0, closeProtection: true });
+        const device = new Device(jwt, {
+          logLevel: 0,
+          closeProtection: true,
+          tokenRefreshMs: TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
+        });
         deviceRef.current = device;
+
+        const voiceRefresh = createTwilioVoiceRefreshController(device, {
+          isActive: () => !disposed,
+          onRefreshFailed: (e) => {
+            if (!disposed) {
+              setVoiceBanner(e instanceof Error ? e.message : 'No se pudo renovar el token de voz');
+            }
+          },
+          onRefreshed: () => {
+            if (!disposed) setVoiceBanner(null);
+          },
+        });
+        detachVoiceRefresh = voiceRefresh.detach;
 
         device.on('registered', () => {
           if (!disposed) {
@@ -122,7 +130,9 @@ export function PortalVoiceLayer() {
           if (!disposed) setRegistered(false);
         });
         device.on('error', (err) => {
-          if (!disposed) setVoiceBanner(err.message ?? 'Error Twilio');
+          if (disposed) return;
+          if (voiceRefresh.handleExpiredDeviceError(err)) return;
+          setVoiceBanner(err.message ?? 'Error Twilio');
         });
         device.on('incoming', (call) => {
           if (disposed) return;
@@ -150,6 +160,8 @@ export function PortalVoiceLayer() {
 
     return () => {
       disposed = true;
+      detachVoiceRefresh?.();
+      detachVoiceRefresh = null;
       deviceRef.current?.destroy();
       deviceRef.current = null;
     };
