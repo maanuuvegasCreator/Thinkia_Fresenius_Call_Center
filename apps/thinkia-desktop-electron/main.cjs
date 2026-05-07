@@ -8,6 +8,10 @@ const fs = require('fs');
 
 const DEFAULT_PORTAL = 'https://thinkia-fresenius-call-center2.vercel.app/portal/';
 
+// WebRTC audio (Twilio) usa <audio autoplay>. En algunos entornos Windows/Electron puede quedar bloqueado
+// si Chromium exige gesto. Forzamos política permisiva para evitar “llamada conectada pero sin audio”.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 function portalBaseUrl() {
   try {
     const jPath = path.join(__dirname, 'portal-url.json');
@@ -66,6 +70,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
 
@@ -82,6 +87,14 @@ function createWindow() {
       return;
     }
     callback(false);
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    try {
+      win.webContents.setAudioMuted(false);
+    } catch {
+      /* ignore */
+    }
   });
 
   if (allowedOrigin) {

@@ -5,6 +5,11 @@ import { Building2, Clock, FileText, Phone, PhoneIncoming, Shield, UserRound } f
 import { useAgentPresence } from '../context/AgentPresenceContext';
 import { resolveDynamicsCallerProfile } from '@/lib/dynamicsCallerEnrichment';
 import {
+  applyAudioOutputDeviceToPage,
+  createGetUserMediaWithPreferredInput,
+  getAudioDevicePrefs,
+} from '@/lib/audioDevicePrefs';
+import {
   TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
   createTwilioVoiceRefreshController,
   fetchTwilioVoiceTokenWithRetry,
@@ -68,6 +73,7 @@ export function PortalVoiceLayer() {
   const { acceptsIncomingCalls } = useAgentPresence();
   const acceptsRef = useRef(acceptsIncomingCalls);
   acceptsRef.current = acceptsIncomingCalls;
+  const getPrefsRef = useRef(() => getAudioDevicePrefs());
 
   const deviceRef = useRef<Device | null>(null);
   const [voiceBanner, setVoiceBanner] = useState<string | null>(null);
@@ -100,12 +106,15 @@ export function PortalVoiceLayer() {
         detachVoiceRefresh?.();
         detachVoiceRefresh = null;
         deviceRef.current?.destroy();
+        const getUserMedia = createGetUserMediaWithPreferredInput(() => getPrefsRef.current().inputDeviceId);
         const device = new Device(jwt, {
           logLevel: 0,
           closeProtection: true,
           tokenRefreshMs: TWILIO_VOICE_TOKEN_REFRESH_MARGIN_MS,
+          getUserMedia,
         });
         deviceRef.current = device;
+        void applyAudioOutputDeviceToPage(getPrefsRef.current().outputDeviceId);
 
         const voiceRefresh = createTwilioVoiceRefreshController(device, {
           isActive: () => !disposed,
@@ -177,8 +186,11 @@ export function PortalVoiceLayer() {
 
   const answer = useCallback(async () => {
     if (!incoming) return;
+    const prefs = getAudioDevicePrefs();
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audio =
+        prefs.inputDeviceId != null ? ({ deviceId: { exact: prefs.inputDeviceId } } as MediaTrackConstraints) : true;
+      await navigator.mediaDevices.getUserMedia({ audio });
     } catch {
       setVoiceBanner('Permiso de micrófono necesario para contestar.');
       return;

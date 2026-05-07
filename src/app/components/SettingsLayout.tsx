@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
   Settings as SettingsIcon,
-  Plug
+  Plug,
+  Headphones
 } from 'lucide-react';
 import { cn } from './ui/utils';
 import { Button } from './ui/button';
@@ -21,6 +22,11 @@ const settingsMenuItems = [
     icon: Plug,
     label: 'Integraciones',
     path: '/settings/integrations',
+  },
+  {
+    icon: Headphones,
+    label: 'Dispositivos',
+    path: '/settings/audio-devices',
   },
 ];
 

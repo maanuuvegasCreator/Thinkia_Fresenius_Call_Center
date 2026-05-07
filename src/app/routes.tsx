@@ -11,6 +11,7 @@ import { Numbers } from './pages/settings/Numbers';
 import { SettingsPlaceholder } from './pages/settings/SettingsPlaceholder';
 import { CallSettings } from './pages/settings/CallSettings';
 import { Integrations } from './pages/settings/Integrations';
+import { AudioDevices } from './pages/settings/AudioDevices';
 import { MainLayout } from './components/MainLayout';
 import { PortalRouteGuard } from './components/PortalRouteGuard';
 import { Contacts } from './pages/Contacts';
@@ -129,6 +130,16 @@ export const router = createBrowserRouter(
       <MainLayout>
         <PortalRouteGuard>
           <Integrations />
+        </PortalRouteGuard>
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/settings/audio-devices',
+    element: (
+      <MainLayout>
+        <PortalRouteGuard>
+          <AudioDevices />
         </PortalRouteGuard>
       </MainLayout>
     ),
