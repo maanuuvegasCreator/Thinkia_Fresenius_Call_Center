@@ -88,6 +88,7 @@ export function PortalVoiceLayer() {
       setActive(null);
       setIncoming(null);
       setMuted(false);
+      void deviceRef.current?.audio?.unsetInputDevice().catch(() => undefined);
     });
     call.on('cancel', () => setIncoming(null));
     call.on('reject', () => setIncoming(null));
@@ -223,6 +224,14 @@ export function PortalVoiceLayer() {
     } catch {
       setVoiceBanner('Permiso de micrófono necesario para contestar.');
       return;
+    }
+    try {
+      const device = deviceRef.current;
+      if (device?.audio && prefs.inputDeviceId) {
+        await device.audio.setInputDevice(prefs.inputDeviceId);
+      }
+    } catch {
+      // si falla, dejamos que Twilio use el dispositivo por defecto
     }
     incoming.accept();
     setActive(incoming);
