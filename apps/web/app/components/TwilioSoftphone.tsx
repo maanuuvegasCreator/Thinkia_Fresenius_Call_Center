@@ -142,6 +142,15 @@ export function TwilioSoftphone() {
       });
       deviceRef.current = device;
 
+      try {
+        if (device.audio?.isOutputSelectionSupported) {
+          await device.audio.speakerDevices.set('default');
+          await device.audio.ringtoneDevices.set('default');
+        }
+      } catch {
+        // best-effort: si falla, Twilio usará el dispositivo por defecto del sistema
+      }
+
       const voiceRefresh = createTwilioVoiceRefreshController(device, {
         isActive: () => deviceRef.current === device,
         onRefreshFailed: (e: unknown) => {

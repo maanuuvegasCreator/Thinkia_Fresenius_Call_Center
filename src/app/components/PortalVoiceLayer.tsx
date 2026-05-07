@@ -122,9 +122,10 @@ export function PortalVoiceLayer() {
           const outId = prefs.outputDeviceId;
           // Prefer Twilio's OutputDeviceCollection routing (more reliable than DOM scanning).
           try {
-            if (device.audio?.isOutputSelectionSupported && outId) {
-              await device.audio.speakerDevices.set(outId);
-              await device.audio.ringtoneDevices.set(outId);
+            if (device.audio?.isOutputSelectionSupported) {
+              const nextOut = outId || 'default';
+              await device.audio.speakerDevices.set(nextOut);
+              await device.audio.ringtoneDevices.set(nextOut);
             }
           } catch {
             // fallback best-effort
