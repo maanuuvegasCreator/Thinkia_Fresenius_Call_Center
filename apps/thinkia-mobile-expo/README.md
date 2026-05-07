@@ -46,6 +46,40 @@ npx expo run:ios
 npx expo run:android
 ```
 
+## iOS (sin pagar) — “paridad” con app abierta
+
+Sin **Apple Developer Program** no es posible conseguir **entrantes con pantalla bloqueada** (VoIP Push + CallKit).
+Lo que sí podemos validar gratis es:
+
+- iOS compila en modo dev.
+- Login + `POST /api/token/mobile` + `Voice.register(...)` funcionan.
+- Entrantes/salientes **con la app abierta** (foreground).
+
+Requisitos prácticos:
+
+- Para compilar iOS local necesitas **Mac + Xcode**.
+- Alternativa sin Mac: dejar el repo listo y cuando haya Apple Developer usar **EAS Build** (cloud).
+
+Checklist (local en Mac):
+
+```bash
+cd apps/thinkia-mobile-expo
+cp .env.example .env
+npm install
+
+# Genera ios/ (y android/ si hace falta)
+npx expo prebuild --platform ios
+
+# Compila e instala en un iPhone conectado (requiere Xcode)
+npx expo run:ios --device
+```
+
+Notas:
+
+- `expo prebuild --platform ios` **no se puede ejecutar en Windows** (Expo lo bloquea); hay que hacerlo en macOS.
+- iOS pedirá permiso de micrófono al contestar/hacer llamada.
+- Para que “suene bloqueado” (CallKit) ver `apps/web/docs/C3-PUSH-CALLKIT-SETUP.md` y requiere Apple Developer + credenciales APNs en Twilio.
+
 `@twilio/voice-react-native-sdk@2.0.0-preview.1` está alineado con **Expo 52** según Twilio. En Android, **FCM es obligatorio para `Voice.register()`**: el `google-services.json` debe estar en **`android/app/`** (y el plugin `com.google.gms.google-services` ya está aplicado en el `build.gradle` nativo). `app.config.ts` usa la misma ruta si ejecutas `expo prebuild`.
 
 ## Funcionalidad en la app
